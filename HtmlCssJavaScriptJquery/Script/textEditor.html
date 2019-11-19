@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+	 <title>Classic editor with default styles</title>
+    <script src="http://cdn.ckeditor.com/4.6.2/standard-all/ckeditor.js"></script>
+	<!-- <title>Text Editor</title>
+	<script type="text/javascript">
+	var javaEditor = CodeMirror.fromTextArea(document.getElementById("java-code"), {
+    lineNumbers: true,
+    matchBrackets: true,
+    mode: "text/x-java"
+  });
+  var mac = CodeMirror.keyMap.default == CodeMirror.keyMap.macDefault;
+  CodeMirror.keyMap.default[(mac ? "Cmd" : "Ctrl") + "-Space"] = "autocomplete";
+
+	</script> -->
+</head>
+<body>
+	<textarea cols="80" id="editor1" name="editor1" rows="10" >&lt;p&gt;This is some &lt;strong&gt;sample text&lt;/strong&gt;. You are using &lt;a href="http://ckeditor.com/"&gt;CKEditor&lt;/a&gt;.&lt;/p&gt;
+    </textarea>
+
+    <script>
+        CKEDITOR.replace( 'editor1', {
+            height: 260,
+            width: 700,
+        } );
+    </script>
+</body>
+</html>

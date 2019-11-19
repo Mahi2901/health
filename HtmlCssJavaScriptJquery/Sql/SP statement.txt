@@ -1,0 +1,425 @@
+package com.hdg.entity.persistance.dal;
+
+import java.sql.CallableStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.sql.Types;
+import java.util.Calendar;
+import java.util.Date;
+
+import com.hdg.client.cabin.ListCover;
+import com.hdg.client.database.DBConnection;
+
+public class SPStatement
+{
+	private long				milisecond				= 0;
+	private String				printSt					= "";
+	private CallableStatement	callableStatement		= null;
+	private int					registerParameterIndex	= 0;
+	private int					rowsAffected			= 0;
+	private java.sql.SQLXML		xmlObject;
+	public java.sql.SQLXML getXmlObject()
+	{
+		return xmlObject;
+	}
+	public void setXmlObject(java.sql.SQLXML xmlObject)
+	{
+		this.xmlObject = xmlObject;
+	}
+	public int getRegisterParameterIndex()
+	{
+		return registerParameterIndex;
+	}
+	public void setRegisterParameterIndex(int registerParameterIndex)
+	{
+		this.registerParameterIndex = registerParameterIndex;
+	}
+	public SPStatement()
+	{}
+	//synchronized #RemovedAuctionQueue
+	public void prepareCall(String procedurename, int no_of_para, DBConnection dbConnection) throws SQLException
+	{
+		dbConnection.printTotalConnection(procedurename + "->");
+		registerParameterIndex = 0;
+		no_of_para = no_of_para + 1;
+		String statement = "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?";
+		statement = "{call " + procedurename + "(" + statement.substring(0, (no_of_para * 2) - 1) + ")}";
+		this.milisecond = System.currentTimeMillis();
+		this.callableStatement = dbConnection.prepareCall(statement);
+		this.callableStatement.registerOutParameter(1, Types.BIGINT); // Error
+		printSt = "--" + statement + "\n\t";
+		printSt = "\nexecute " + procedurename;
+		printSt += "\nnull,-- >" + registerParameterIndex + "-OutParameter(BIGINT)";
+		registerParameterIndex = 1;
+
+	}
+	//synchronized #RemovedAuctionQueue
+	public void prepareCallForList(String procedurename, int no_of_para, ListCover listCover, DBConnection dbConnection) throws SQLException
+	{
+		registerParameterIndex = 0;
+		no_of_para = no_of_para + 6;
+		String statement = "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?";
+		statement = "{call " + procedurename + "(" + statement.substring(0, (no_of_para * 2) - 1) + ")}";
+		this.milisecond = System.currentTimeMillis();
+		printSt += "--" + statement + "\n\t";
+		printSt = "execute " + procedurename;
+		this.callableStatement = dbConnection.prepareCall(statement);
+
+		registerParameterIndex++;
+		this.callableStatement.registerOutParameter(1, Types.BIGINT); //Error number from the stored procedure
+		printSt += "\nnull, --" + registerParameterIndex + "-OutParameter(BIGINT)";
+
+		registerParameterIndex++;
+		this.callableStatement.registerOutParameter(2, Types.BIGINT); //totalRec       from the stored procedure
+		printSt += "\nnull, --" + registerParameterIndex + "-OutParameter(BIGINT)";
+
+		this.set(listCover.getPageNo()); //pageNo         from the stored procedure
+		this.set(listCover.getRecordsPerPage()); //recordsPerPage from the stored procedure
+		this.set(listCover.getOrderBy()); //orderBy        from the stored procedure
+		this.set(listCover.getOrderDirection()); //orderDirection from the stored procedure
+
+	}
+	protected void execute() throws SQLException
+	{
+
+		try
+		{
+			rowsAffected = 0;
+			this.callableStatement.execute();
+			printSt += "\n-->Execute Time : " + (System.currentTimeMillis() - this.milisecond);
+			printSPCaller();
+		}
+		catch (SQLException sqlException)
+		{
+			printSt += "\n-->SQLException occure for following Execute statement";
+			printSPCaller();
+			throw sqlException;
+		}
+
+	}
+
+	public void close()
+	{
+		try
+		{
+			if (this.callableStatement != null)
+				this.callableStatement.close();
+			this.callableStatement = null;
+			System.err.println("\n-->Total ExecuteTime(cnn close)=" + (System.currentTimeMillis() - this.milisecond));
+			this.milisecond = 0;
+
+		}
+		catch (Exception e)
+		{
+			// //LogWriter.log(e);
+			e.printStackTrace();
+		}
+	}
+
+	public Object getObject(int index) throws SQLException
+	{
+		return this.callableStatement.getObject(index);
+	}
+	public Integer getInteger(int index) throws SQLException
+	{
+		Object tmpObject = this.callableStatement.getObject(index);
+		return (tmpObject == null ? null : (Integer) tmpObject);
+	}
+	public Float getFloatObject(int index) throws SQLException
+	{
+		Object tmpObject = this.callableStatement.getObject(index);
+		return (tmpObject == null ? null : (Float) tmpObject);
+	}
+	public Long getLongObject(int index) throws SQLException
+	{
+		Object tmpObject = this.callableStatement.getObject(index);
+		return (tmpObject == null ? null : (Long) tmpObject);
+	}
+	public Byte getByteObject(int index) throws SQLException
+	{
+		Object tmpObject = this.callableStatement.getObject(index);
+		return (tmpObject == null ? null : (Byte) tmpObject);
+	}
+	public Double getDoubleObject(int index) throws SQLException
+	{
+		Object tmpObject = this.callableStatement.getObject(index);
+		return (tmpObject == null ? null : (Double) tmpObject);
+	}
+
+	public int getInt(int index) throws SQLException
+	{
+		return this.callableStatement.getInt(index);
+	}
+	public float getFloat(int index) throws SQLException
+	{
+		return this.callableStatement.getFloat(index);
+	}
+	public long getLong(int index) throws SQLException
+	{
+		return this.callableStatement.getLong(index);
+	}
+	public byte getByte(int index) throws SQLException
+	{
+		return this.callableStatement.getByte(index);
+	}
+	public double getDouble(int index) throws SQLException
+	{
+		return this.callableStatement.getDouble(index);
+	}
+	public String getString(int index) throws SQLException
+	{
+		return this.callableStatement.getString(index);
+	}
+	public ResultSet getResultSet() throws SQLException
+	{
+		return this.callableStatement.getResultSet();
+	}
+	public ResultSet getMoreResultSet() throws SQLException
+	{
+		this.callableStatement.getMoreResults();
+		return this.callableStatement.getResultSet();
+		/*
+		 * ResultSet resultSet=null;
+		 * 
+		 * if (rowsAffected == -1) { //SOPremoved //SOPremoved //SOPremoved
+		 * return null;
+		 *  }
+		 * 
+		 * //SOPremoved boolean queryResult =
+		 * this.callableStatement.getMoreResults(); //SOPremoved //SOPremoved if
+		 * (queryResult) { resultSet=this.callableStatement.getResultSet(); }
+		 * //else { //SOPremoved rowsAffected =
+		 * this.callableStatement.getUpdateCount(); //SOPremoved //SOPremoved
+		 * //return null; } return resultSet;
+		 */
+	}
+	public static java.util.Date getDateWithTime(ResultSet resultSet, int index) throws SQLException
+	{
+		java.util.Date data;
+		Timestamp timestamp = resultSet.getTimestamp(index);
+		if (timestamp != null)
+		{
+			data = new java.util.Date((timestamp.getTime()));
+		}
+		else
+			data = null;
+		return data;
+	}
+	public java.sql.Date getDate(int index) throws SQLException
+	{
+		return this.callableStatement.getDate(index);
+	}
+
+	public void registerOutParameter(int type) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\nnull,-- >" + registerParameterIndex + "-OutParameter(type)";
+		this.callableStatement.registerOutParameter(registerParameterIndex, type);
+	}
+	public void registerOutParameter(int type, String objname) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\nnull,-- >" + registerParameterIndex + "-OutParameter(type, " + objname + ")";
+		this.callableStatement.registerOutParameter(registerParameterIndex, type, objname);
+	}
+
+	public void setNull(int sqlType) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\nnull,-- >" + registerParameterIndex + "-set(NULL)";
+		this.callableStatement.setNull(registerParameterIndex, sqlType);
+	}
+	public void setNull(int sqlType, String typeName) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\nnull,-- >" + registerParameterIndex + "-set(NULL)";
+		this.callableStatement.setNull(registerParameterIndex, sqlType, typeName);
+	}
+
+	public void set(boolean data) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\n" + data + ",-- >" + registerParameterIndex + "-set(boolean " + data + ")";
+		this.callableStatement.setBoolean(registerParameterIndex, data);
+	}
+
+	public void set(Boolean data) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\n" + data + ",-- >" + registerParameterIndex + "-set(Boolean " + data + ")";
+		if (data == null)
+			this.callableStatement.setNull(registerParameterIndex, Types.BOOLEAN);
+		else
+			this.callableStatement.setBoolean(registerParameterIndex, data);
+	}
+
+	public void set(byte data) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\n" + data + ",-- >" + registerParameterIndex + "-set(byte " + data + ")";
+		this.callableStatement.setByte(registerParameterIndex, data);
+	}
+	public void setXMl(java.sql.SQLXML xmlObject) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\n" + xmlObject + ",--" + registerParameterIndex + "-set(xml " + xmlObject + ")";
+		this.callableStatement.setSQLXML(registerParameterIndex, xmlObject);
+	}
+	public void set(Byte data) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\n" + data + ",-- >" + registerParameterIndex + "-set(byte " + data + ")";
+		if (data == null)
+			this.callableStatement.setNull(registerParameterIndex, Types.SMALLINT);
+		else
+			this.callableStatement.setByte(registerParameterIndex, data);
+	}
+	public void set(int data) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\n" + data + ",-- >" + registerParameterIndex + "-set(int " + data + ")";
+		this.callableStatement.setInt(registerParameterIndex, data);
+	}
+	public void set(Integer data) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\n" + data + ",-- >" + registerParameterIndex + "-set(int " + data + ")";
+		if (data == null)
+			this.callableStatement.setNull(registerParameterIndex, Types.INTEGER);
+		else
+			this.callableStatement.setInt(registerParameterIndex, data);
+	}
+
+	public void set(String data) throws SQLException
+	{
+		registerParameterIndex++;
+		if (data != null)
+		{
+			//data = data.trim();
+			printSt += "\n'" + data.replaceAll("'", "''") + "',-- >" + registerParameterIndex + "-set(String " + data + ")";
+		}
+		else
+			printSt += "\nnull,-- >" + registerParameterIndex + "-set(String " + data + ")";
+		this.callableStatement.setString(registerParameterIndex, data);
+	}
+	public void set(long data) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\n" + data + ",-- >" + registerParameterIndex + "-set(long " + data + ")";
+		this.callableStatement.setLong(registerParameterIndex, data);
+	}
+	public void set(Long data) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\n" + data + ",-- >" + registerParameterIndex + "-set(long " + data + ")";
+		if (data == null)
+			this.callableStatement.setNull(registerParameterIndex, Types.BIGINT);
+		else
+			this.callableStatement.setLong(registerParameterIndex, data);
+	}
+
+	public void set(java.sql.Date dt) throws SQLException
+	{
+		registerParameterIndex++;
+		//2017-08-04 23:25:27.730
+		if (dt == null)
+		{
+			printSt += "\nNULL,-- sql:" + registerParameterIndex + "-set(sql.date " + dt + ")";
+			this.callableStatement.setNull(registerParameterIndex, Types.DATE);
+		}
+		else
+		{
+			printSt += "\n'" + sqlFormat(dt) + "',-- sql:" + registerParameterIndex + "-set(sql.date " + dt + ")";
+			this.callableStatement.setTimestamp(registerParameterIndex, new Timestamp(dt.getTime()));
+		}
+	}
+	public void set(java.util.Date dt) throws SQLException
+	{
+		registerParameterIndex++;
+		if (dt == null)
+		{
+			printSt += "\nNULL,-- sql:" + registerParameterIndex + "-set(sql.date " + dt + ")";
+			this.callableStatement.setNull(registerParameterIndex, Types.DATE);
+		}
+		else
+		{
+			printSt += "\n'" + sqlFormat(dt) + "',-- sql:" + registerParameterIndex + "-set(sql.date " + dt + ")";
+			this.callableStatement.setTimestamp(registerParameterIndex, new Timestamp(dt.getTime()));
+		}
+	}
+	public void set(Calendar calendar) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\n'" + calendar + "',-- >" + registerParameterIndex + "-set(util.date " + calendar + ")";
+		if (calendar == null)
+		{
+			this.callableStatement.setNull(registerParameterIndex, Types.DATE);
+		}
+		else
+		{
+			this.callableStatement.setTimestamp(registerParameterIndex, new Timestamp(calendar.getTimeInMillis()));
+		}
+	}
+
+	public void set(java.sql.Array arr) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\n" + registerParameterIndex + "-set(Array " + arr + ")";
+		this.callableStatement.setArray(registerParameterIndex, arr);
+	}
+
+	public void set(double data) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\n" + data + ",-- >" + registerParameterIndex + "-set(double " + data + ")";
+		this.callableStatement.setDouble(registerParameterIndex, data);
+	}
+
+	public void set(Double data) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\n" + data + ",-- >" + registerParameterIndex + "-set(Double " + data + ")";
+		if (data == null)
+			this.callableStatement.setNull(registerParameterIndex, Types.DOUBLE);
+		else
+			this.callableStatement.setDouble(registerParameterIndex, data);
+	}
+	public void set(Object data) throws SQLException
+	{
+		registerParameterIndex++;
+		printSt += "\n" + data + ",-- >" + registerParameterIndex + "-set(Object " + data + ")";
+		//System.out.println("\n" + data + ",-- >" + registerParameterIndex + "-set(Object " + data + ")");
+		if (data == null)
+			this.callableStatement.setNull(registerParameterIndex, Types.DOUBLE);
+		else
+			this.callableStatement.setObject(registerParameterIndex, data);
+	}
+
+	public void printSPCaller()
+	{
+		int lastIndex = printSt.lastIndexOf(",-- >");
+		if (lastIndex > 0)
+		{
+			System.err.println(printSt.substring(0, lastIndex));
+			System.err.println(printSt.substring(lastIndex + 1));
+		}
+		else
+		{
+			System.err.println(printSt);
+		}
+	}
+
+	public int getRowsAffected()
+	{
+		return rowsAffected;
+	}
+	public static String sqlFormat(java.util.Date dt)
+	{
+		return (dt.getYear() + 1900) + "-" + (dt.getMonth() + 1) + "-" + dt.getDay() + " " + dt.getHours() + ":" + dt.getMinutes() + ":" + dt.getSeconds();
+	}
+	public static String sqlFormat(java.sql.Date dt)
+	{
+		return (dt.getYear() + 1900) + "-" + (dt.getMonth() + 1) + "-" + dt.getDay() + " " + dt.getHours() + ":" + dt.getMinutes() + ":" + dt.getSeconds();
+	}
+}

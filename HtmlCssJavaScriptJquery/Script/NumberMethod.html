@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<button onclick="myFunction()">Try it</button>
+<h1>Orignal number </h1>
+<p id="d1"></p>
+
+<h2>Number Operation </h2>
+
+<p id="demo"></p>
+
+
+<script>
+function myFunction() {
+  var x = 123;
+  var y = 9.569;
+  var z = 200;
+
+  document.getElementById("d1").innerHTML = x + "<br>" + y +"<br>"+ z + "<br>"; 
+
+
+
+  document.getElementById("demo").innerHTML = 
+  x.toString() + "<br>" +
+   (123).toString() + "<br>" +
+   (100 + 23).toString() + "<br>" + "toExponential Method <br>" +
+	y.toExponential() + "<br>" + 
+    y.toExponential(2) + "<br>" + 
+    y.toExponential(4) + "<br>" + "toFixed Method <br>" +
+    y.toFixed(0) + "<br>" +
+  	y.toFixed(2) + "<br>" +
+  	y.toFixed(4) + "<br>" +
+  	y.toFixed(6) + "<br>" + "toPrecision Method <br>" +
+  	y.toPrecision() + "<br>" +
+  	y.toPrecision(2) + "<br>" +
+  	y.toPrecision(4) + "<br>" +
+  	y.toPrecision(6) + "<br>" + "ValueOf Method <br>" +
+  	x.valueOf() + "<br>" +
+ 	(123).valueOf() + "<br>" +
+ 	(100 + 23).valueOf() + "<br>" + "number Method <br>" +
+ 	Number(true) + "<br>" +
+  	Number(false) + "<br>" +
+  	Number("10") + "<br>" + 
+  	Number("  10") + "<br>" +
+  	Number("10  ") + "<br>" +
+  	Number(" 10  ") + "<br>" +
+  	Number("10.33") + "<br>" + 
+  	Number("10,33") + "<br>" +
+  	Number("10 33") + "<br>" +
+  	Number("John") + "<br>"+
+  	Number(new Date("2017-09-30")) + "<br>" + "parseInt Method <br>" +
+  	parseInt("10") + "<br>" +
+  	parseInt("10.33") + "<br>" +
+  	parseInt("10 6") + "<br>" +  
+  	parseInt("10 years") + "<br>" +  
+  	parseInt("years 10")+ "<br>" + "parseFloat Method <br>" +
+  	parseFloat("10") + "<br>" +
+  	parseFloat("10.33") + "<br>" +
+  	parseFloat("10 6") + "<br>" +  
+  	parseFloat("10 years") + "<br>" +
+  	parseFloat("years 10");
+
+}
+</script>
+
+</body>
+</html>

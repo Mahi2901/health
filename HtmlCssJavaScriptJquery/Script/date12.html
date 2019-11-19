@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h2>JavaScript Date()</h2>
+
+<p>The toUTCString() method converts a date to a UTC string (a date display standard):</p>
+
+<p id="demo"></p>
+<p id="demo1"></p><br>
+<p id="demo2"></p><br>
+<p id="demo3"></p><br>
+<p id="demo4"></p><br>
+
+<script>
+var d = new Date();
+var d1 = new Date("2015-03-25");
+document.getElementById("demo").innerHTML = d;
+document.getElementById("demo1").innerHTML = "toString()  :       &nbsp;"+d.toString();
+document.getElementById("demo2").innerHTML = "d.toUTCString()  :    "+d.toUTCString();
+document.getElementById("demo3").innerHTML = "toDateString()  :   "+d.toDateString();
+document.getElementById("demo4").innerHTML = "2015-03-25  :      "+d1;
+
+</script>
+
+</body>
+</html>

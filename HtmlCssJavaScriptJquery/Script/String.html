@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<button onclick="myFunction()">Try it</button>
+<h1>Orignal String </h1>
+<p id="d1"></p>
+<p id="d2"></p>
+<p id="d3"></p>
+<p id="d4"></p>
+
+<h2>String Operation </h2>
+
+<p id="demo"></p>
+<p id="demo1"></p>
+<p id="demo2"></p>
+<p id="demo3"></p>
+<p id="demo4"></p>
+<p id="demo5"></p>
+<p id="demo6"></p>
+<p id="demo7"></p>
+<p id="demo8"></p>
+<p id="demo9"></p>
+<p id="demo10"></p>
+<p id="demo11"></p>
+<p id="demo12"></p>
+<p id="demo13"></p>
+<p id="demo14"></p>
+<p id="demo15"></p>
+<p id="demo16"></p>
+
+
+<script>
+function myFunction() {
+  var str1 = "Hello Mahi How are you Mahi";
+  var str2 = "world!";
+  var str3 = "       Hello";
+  var str = "a,b,c,d,f";
+
+  // var pos = str1.indexOf("Mahi");
+  document.getElementById("d1").innerHTML = "String 1 : " + str1;
+  document.getElementById("d2").innerHTML = "String 2 : " + str2;
+  document.getElementById("d3").innerHTML = "String 3 : " + str3;
+  document.getElementById("d4").innerHTML = "String 4 : " + str;
+
+  document.getElementById("demo").innerHTML = "String Lenghth : " + str1.length;
+  document.getElementById("demo1").innerHTML = "String Index No : " + str1.indexOf("Mahi");
+  document.getElementById("demo2").innerHTML = "Last String Index No : " + str1.lastIndexOf("Mahi");
+  document.getElementById("demo3").innerHTML = "String Index No After 15Th char : " + str1.indexOf("Mahi",15);
+  document.getElementById("demo4").innerHTML = "Search String Index No : " + str1.search("Mahi");
+  document.getElementById("demo5").innerHTML = "Cut the String 6 to 10: " + str1.slice(6, 10);
+  document.getElementById("demo6").innerHTML = "Cut the String After 10: " + str1.slice(10);
+  document.getElementById("demo7").innerHTML = "Find the String 7 to 13: " + str1.substring(7, 13);
+  document.getElementById("demo8").innerHTML = "Find the String 7 to 13: " + str1.substr(7, 13);
+  document.getElementById("demo9").innerHTML = "replace the String how to why: " + str1.replace("How","Why");
+  document.getElementById("demo10").innerHTML = "UpperCase : " + str2.toUpperCase();
+  document.getElementById("demo11").innerHTML = "Lowercase : " + str2.toLowerCase();
+  document.getElementById("demo12").innerHTML = "Concat two string : " + str1.concat(str2);
+  document.getElementById("demo13").innerHTML = "Remove Space : " + str3.trim();
+  document.getElementById("demo14").innerHTML = "Find Charecter : " + str2.charAt(3);
+  document.getElementById("demo15").innerHTML = "Find Ascii value : " + str2.charCodeAt(3);
+  document.getElementById("demo16").innerHTML = "Convert Array : " + str.split(",");
+
+
+}
+</script>
+
+</body>
+</html>

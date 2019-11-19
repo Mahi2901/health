@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="jquery-3.3.1.js"></script>
+<script>
+$(document).ready(function(){
+  $("#set").click(function(){
+    $("#w3s").attr({
+      "href" : "https://www.w3schools.com/jquery/",
+      "title" : "W3Schools jQuery Tutorial"
+    });
+  });
+  $("#get").click(function(){
+    alert("attribute value : "+ $("#w3s").attr("href"));
+  });
+});
+</script>
+</head>
+<body>
+
+<p><a href="https://www.w3schools.com" title="some title" id="w3s">W3Schools.com</a></p>
+
+<button id="set">Change href and title</button>
+<button id="get">Get Attribute Value</button>
+
+<p>Mouse over the link to see that the href attribute has changed and a title attribute is set.</p>
+
+</body>
+</html>

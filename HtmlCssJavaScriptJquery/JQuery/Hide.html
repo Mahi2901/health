@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="jquery-3.3.1.js"></script>
+<script>
+	$(document).ready(function(){
+  	$("#all").click(function(){
+    $("p").hide();
+  });
+});
+
+$(document).ready(function(){
+  $("#button").click(function(){
+    $("#test").hide();
+  });
+});
+
+$(document).ready(function(){
+  $(".button").click(function(){
+    $(".test").hide();
+  });
+});
+
+
+</script>
+</head>
+<body>
+
+<h2>This is a heading</h2>
+
+<p>This is Simple paragraph.</p>
+<p id="test">This is id paragraph.</p>
+<p class="test">This is a class paragraph.</p>
+
+<button id="all">Click me to hide All paragraphs</button>
+<button id="button">Click for Id</button>
+<button class="button">Click for class</button>
+
+</body>
+</html>

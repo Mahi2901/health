@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+.ancestors * { 
+  display: block;
+  border: 2px solid lightgrey;
+  color: lightgrey;
+  padding: 5px;
+  margin: 15px;
+}
+</style>
+<script src="jquery-3.3.1.js"></script>
+<script>
+$(document).ready(function(){
+  $("#siblings").click(function(){
+     $("h2").siblings().css({"color": "red", "border": "2px solid red"});
+ });
+
+  $("#specificsiblings").click(function(){
+     $("h2").siblings("p").css({"color": "red", "border": "2px solid red"});
+ });
+
+  $("#next").click(function(){
+      $("h2").next().css({"color": "red", "border": "2px solid red"});
+});
+
+  $("#nextAll").click(function(){
+     $("h2").nextAll().css({"color": "red", "border": "2px solid red"});
+ });
+
+  $("#nextUntil").click(function(){
+     $("h2").nextUntil("h6").css({"color": "red", "border": "2px solid red"});
+ });
+
+ $("#prev").click(function(){
+      $("h2").prev().css({"color": "red", "border": "2px solid red"});
+});
+
+  $("#prevAll").click(function(){
+     $("h2").prevAll().css({"color": "red", "border": "2px solid red"});
+ });
+
+  $("#prevUntil").click(function(){
+     $("h5").prevUntil("#span1").css({"color": "red", "border": "2px solid red"});
+ });
+  
+
+});
+</script>
+</head>
+<body>
+
+<div>div (parent)
+  <p>p</p>
+  <span id="span1">span</span>
+  <h2>h2</h2>
+  <h3>h3</h3>
+  <h4 id="h4">h4</h4>
+  <h5>h5</h5>
+  <h6>h6</h6>
+  <p>p</p>
+</div>
+
+
+<button id="siblings">siblings()</button>
+<button id="specificsiblings">specific siblings</button>
+<button id="next">next()</button>
+<button id="nextAll">nextAll()</button>
+<button id="nextUntil">nextUntil()</button>
+<button id="prev">prev()</button>
+<button id="prevAll">prevAll()</button>
+<button id="prevUntil">prevUntil()</button>
+</body>
+</html>

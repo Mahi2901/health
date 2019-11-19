@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+	<script type="text/javascript" src="jquery.js"></script>
+
+</head>
+<body>
+	User Name : <input type="text" name="uname" id="uname" size="40"><br><br>
+	Password  : <input type="text" name="pass" id="pass" size="40">
+	<div>
+		<p>Hello Mahendra </p>
+		<p><b>This is the demo class</b></p>
+		<u>same as the above class</u>
+	</div>
+	<button id="txt"> text </button>
+	<button id="htm"> html </button>
+	<button id="value"> val </button>
+</body>
+
+<script type="text/javascript">
+	$("#txt").click(function () {
+	    alert($("div").text());	
+	});
+
+		$("#htm").click(function () {
+	    alert($("div").html());	
+	});
+
+		$("#value").click(function () {
+	    alert($("#uname").val() +" "+
+	    	  $("#pass").val());
+	});
+
+	
+</script>
+</html>

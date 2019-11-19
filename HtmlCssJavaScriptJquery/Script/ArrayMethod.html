@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<button onclick="myFunction()">Try it</button>
+<h1>Orignal String </h1>
+<p id="d1"></p>
+<p id="d2"></p>
+<p id="d3"></p>
+
+<h2>String Operation </h2>
+
+<p id="demo"></p>
+<p id="demo1"></p>
+<p id="demo2"></p>
+<p id="demo3"></p>
+<p id="demo4"></p>
+<p id="demo5"></p>
+<p id="demo6"></p>
+<p id="demo7"></p>
+<p id="demo8"></p>
+<p id="demo9"></p>
+<p id="demo10"></p>
+<p id="demo11"></p>
+<p id="demo12"></p>
+<p id="demo13"></p>
+<p id="demo14"></p>
+<p id="demo15"></p>
+<p id="demo16"></p>
+<p id="demo17"></p>
+<p id="demo18"></p>
+<p id="demo19"></p>
+
+<script>
+  var fruits = ["Banana", "Orange", "Apple", "Mango"];
+  var name = ["Mahi", "Man", "ni", "kite"];
+  var animal = ["Dog", "Cat", "Elephant", "Tiger"];
+
+  // var pos = str1.indexOf("Mahi");
+  document.getElementById("d1").innerHTML = "Fruits Array  : " + fruits;
+  document.getElementById("d2").innerHTML = "Name Array : " + name;
+  document.getElementById("d3").innerHTML = "Animal Array : " + animal;
+
+  document.getElementById("demo").innerHTML = "Fruits Array join : " + fruits.join(" * ");
+  document.getElementById("demo1").innerHTML = "toString Method : " + fruits.toString();
+  document.getElementById("demo2").innerHTML = "Without pop : " + fruits;
+  var x = fruits.pop(); // Removes the last element ("Mango") from fruits
+  document.getElementById("demo3").innerHTML = "with pop : " + fruits;
+  document.getElementById("demo4").innerHTML = "pop fruits name : " + x;
+  
+  document.getElementById("demo5").innerHTML = "Before push  method: " + fruits;
+  fruits.push("Kiwi");  //  Adds a new element ("Kiwi") to fruits
+  
+  document.getElementById("demo6").innerHTML = "After push method " + fruits;
+
+  document.getElementById("demo7").innerHTML = "Before shift method : " + fruits;
+  var y = fruits.shift() // Removes the first element "Banana" from fruits
+  document.getElementById("demo8").innerHTML = "After shift method : " + fruits;
+
+  document.getElementById("demo9").innerHTML = "shift value : " + y;
+
+  document.getElementById("demo10").innerHTML = "Before unshift method : " + fruits;
+  fruits.unshift("Lemon");
+  document.getElementById("demo11").innerHTML = "After unshift method : " + fruits;
+  fruits[fruits.length] = "Egg";
+  document.getElementById("demo12").innerHTML = "Append fruits : " + fruits;
+  
+  document.getElementById("demo13").innerHTML = "Orignal name Array : " + name;
+  delete name[0];
+  document.getElementById("demo14").innerHTML = "After delete first element : " + name;
+
+  animal.splice(2, 1, "Lemon", "Kiwi");
+  document.getElementById("demo15").innerHTML = "splice method : " + animal;
+  var con = fruits.concat(animal);
+  var con1 = fruits.concat(animal,name);
+  document.getElementById("demo16").innerHTML = "concat two Array : " + con;
+  document.getElementById("demo17").innerHTML = "concat Three Array : " + con1;
+  var citrus = fruits.slice(1);
+  document.getElementById("demo18").innerHTML = " fruits slice Method : " + fruits + "   ///  " + citrus;
+  var citrus = name.slice(1,3);
+  document.getElementById("demo19").innerHTML = "name Array slice Method : "+ name + "   ///  " + citru;
+
+
+</script>
+
+</body>
+</html>

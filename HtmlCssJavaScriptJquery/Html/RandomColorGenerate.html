@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+  <meta charset="utf-8">
+  <title>Count the number of specific elements</title>
+</head>
+<body>
+<ul id="ul1">
+  <li>List - 1</li>
+  <li>List - 2</li>
+  <li>List - 3</li>
+  <li>List - 4</li>
+  <li>List - 5</li>
+</ul>
+<ul id="ul2">
+  <li>List - 1</li>
+  <li>List - 2</li>
+  <li>List - 3</li>
+  <li>List - 4</li>
+</ul>
+<ul id="ul3">
+  <li>List - 1</li>
+  <li>List - 2</li>
+  <li>List - 3</li>
+</ul>
+  <button>Display the number of li elements in console</button>
+</body>
+<script type="text/javascript">
+	$(document).ready(function(){
+		/*
+			var ul1 = $("#ul1 li").length;
+			var ul2 = $("#ul2 li").length;
+			var ul3 = $("#ul3 li").length;
+
+			alert("ul1=" +ul1+ "ul2=" + ul2 + "ul3=" + ul3);
+		*/
+
+		
+		 setRandomColor();
+  		/*$("button").click(function(){
+    	console.log($("li").length);
+  		});*/
+	});
+
+	function getRandomColor() {
+ 		var letters = '0123456789ABCDEF';
+  		var color = '#';
+  		for (var i = 0; i < 6; i++) {
+    		color += letters[Math.floor(Math.random() * 16)];
+  		}
+  		return color;
+	}
+	function setRandomColor() {
+		var n = $("li").length;
+		for (var i = 1; i <= n; i++) {
+ 		 	$("li:nth-child(n+"+i+")").css("background", getRandomColor());
+ 		}
+	}
+
+</script>
+</html>

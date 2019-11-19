@@ -1,0 +1,44 @@
+<script type="text/javascript" src="http://www.xverify.com/sharedjs/jquery-1.11.1.min.js"></script>
+<script type="text/javascript" src="http://www.xverify.com/sharedjs/jquery-ui.min.js"></script>
+<script type="text/javascript" src="http://www.xverify.com/js/clients/jacksmith/client.js"></script>
+<script type="text/javascript" src="http://www.xverify.com/sharedjs/jquery.xverify.plugin.js"></script>
+
+<form method="GET">
+	<br><br><br><br><br>
+<input type="text" name="email" id="email">
+<input type="hidden" name="apikey" id="apikey">
+<input type="hidden" name="password" id="password">
+<input type="submit" id="submit" name="submit" value="Submit">
+</form>
+<script type="text/javascript">
+$(document).ready(function(){
+	$("#submit").click(function(){
+  		$("#apikey").val("APIKEY");
+  		$("#password").val("password");
+	});
+	
+	$.xVerifyService({
+	 services: {
+	  email: {field: 'xverify_email'}
+	 },
+	 submitType: 'onClick'
+	});
+});
+</script>
+
+<link rel="stylesheet" type="text/css"  href="http://www.xverify.com/css/ui_tooltip_style.css"  />
+<script type="text/javascript" src="http://www.xverify.com/sharedjs/jquery-1.11.1.min.js"></script>
+<script type="text/javascript" src="http://www.xverify.com/sharedjs/jquery-ui.min.js"></script>
+<script type="text/javascript" src="http://www.xverify.com/js/clients/jacksmith/client.js"></script>
+<script type="text/javascript" src="http://www.xverify.com/sharedjs/jquery.xverify.plugin.js"></script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+	$.xVerifyService({
+	 services: {
+	  email: {field: 'xverify_email'}
+	 },
+	 submitType: 'onChange'
+	});
+});
+</script>

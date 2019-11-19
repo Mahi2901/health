@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+	<link rel="stylesheet" type="text/css" href="popup.css">
+<script type="text/javascript">
+	getBrowserSize = function() {
+	// var bodyWidth = document.documentElement.clientWidth;
+	// var bodyHeight = document.documentElement.clientHeight;
+	var bodyWidth, bodyHeight;
+	if (self.innerHeight) { // all except Explorer
+		bodyWidth = self.innerWidth;
+		bodyHeight = self.innerHeight;
+	} else if (document.documentElement
+			&& document.documentElement.clientHeight) {
+		// Explorer 6 Strict Mode
+		bodyWidth = document.documentElement.clientWidth;
+		bodyHeight = document.documentElement.clientHeight;
+	} else if (document.body) {// other Explorers
+		bodyWidth = document.body.clientWidth;
+		bodyHeight = document.body.clientHeight;
+	}
+	return [bodyWidth, bodyHeight];
+}
+
+	var confirm_interval;
+	var size = getBrowserSize();
+	alert(size);
+	function createProcessSuccessDiv() {
+	var path = "successMessage.png";
+	var processSuccessDiv = document.createElement("div");
+	processSuccessDiv.className = "flashSuccessMsg";
+	processSuccessDiv.id = "flashSuccessMsg_id";
+	// processSuccessDiv.innerHTML = "<img src=\"images/successicon.jpg\"
+	// align=\"middle\" style=\"float:left; padding-right:5px;\"><DIV
+	// id=\"flashSuccessMsgData_id\"></DIV>";
+	// align=\"middle\" style=\"float:left; padding-right:5px;\"
+	processSuccessDiv.innerHTML = "<img src="
+			+ path
+			+ " ><div class=\"flashSuccessMsgtxt\"><p id=\"flashSuccessMsgData_id\"></p></div>";
+	document.body.appendChild(processSuccessDiv);
+}
+
+
+function showConfirmationMessage(message) {
+	var processSuccessDiv = document.getElementById("flashSuccessMsg_id");
+	if (processSuccessDiv == undefined) {
+		createProcessSuccessDiv();
+		processSuccessDiv = document.getElementById("flashSuccessMsg_id");
+	}
+	document.getElementById("flashSuccessMsgData_id").innerHTML = message;
+	showProcessMessage(processSuccessDiv);
+}
+
+
+
+function showProcessMessage(flashMsgDivObj) {
+	needToShowNote = false;
+	flashMsg_idObj = flashMsgDivObj;
+
+	this.flashMsg_idObj.style.zIndex = 9999999;
+	this.flashMsg_idObj.style.position = "absolute";
+	this.flashMsg_idObj.style.alignself = "center";
+
+	confirm_interval = setInterval("autoHideConfirmMessage()", 3500);
+
+	var topOffset = Math.max(document.body.scrollTop,
+			document.documentElement.scrollTop);
+	var brSize = getBrowserSize();
+	var bodyWidth = brSize[0];
+	var bodyHeight = brSize[1];
+	flashMsg_idObj.style.display="block";
+	var tmpWidth = this.flashMsg_idObj.clientWidth?this.flashMsg_idObj.clientWidth: this.flashMsg_idObj.offsetWidth;
+	var tmpHeight = this.flashMsg_idObj.clientHeight? this.flashMsg_idObj.clientHeight: this.flashMsg_idObj.offsetHeight;
+	// Setting width and height of left transparent div
+
+	var leftPoint = ((bodyWidth / 2) - (tmpWidth / 2));
+	//alert("leftPoint=" + leftPoint);
+	flashMsg_idObj.style.left = leftPoint + 'px';
+	flashMsg_idObj.style.top = (Math.ceil((bodyHeight - tmpHeight) / 2) + topOffset)+ 'px';
+
+	/*
+	 * var bodyWidth = document.documentElement.clientWidth; var bodyHeight =
+	 * document.documentElement.clientHeight; var bodyWidth, bodyHeight; if
+	 * (self.innerHeight) { // all except Explorer bodyWidth = self.innerWidth;
+	 * bodyHeight = self.innerHeight; } else { if (document.documentElement &&
+	 * document.documentElement.clientHeight) { // Explorer 6 Strict Mode
+	 * bodyWidth = document.documentElement.clientWidth; bodyHeight =
+	 * document.documentElement.clientHeight; } else { if (document.body) {//
+	 * other Explorers bodyWidth = document.body.clientWidth; bodyHeight =
+	 * document.body.clientHeight; } } } flashMsg_idObj.style.left =
+	 * Math.ceil((bodyWidth - 400) / 2) + "px"; flashMsg_idObj.style.top =
+	 * (Math.ceil((bodyHeight - 20) / 2) + 10) + "px";
+	 */
+	flashMsg_idObj.style.display = "block";
+
+}
+
+function autoHideConfirmMessage() {
+	needToShowNote = true;
+	flashMsg_idObj.style.display = "none";
+	clearInterval(confirm_interval);
+}
+
+</script>
+</head>
+
+<body>
+ <h1>Confirmation Message</h1>
+ <hr>
+ <input type="submit" name="submit" value="Click" onclick="showConfirmationMessage('Hello')">
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="jquery-3.3.1.js"></script>
+<script>
+
+function appendText() {
+  var txt1 = "<p>Text.</p>";        // Create text with HTML
+  var txt2 = $("<p></p>").text("Text.");  // Create text with jQuery
+  var txt3 = document.createElement("p");
+  txt3.innerHTML = "Text.";         // Create text with DOM
+  $("div").append(txt1, txt2, txt3);   // Append new elements
+}
+
+
+$(document).ready(function(){
+  $("#Append").click(function(){
+    $("#ex1").append(" <b>Appended text</b>.");
+  });
+
+   $("#Prepend").click(function(){
+    $("#ex2").prepend(" <b>Prepend text</b>.");
+  });
+
+   $("#After").click(function(){
+    $("#ex3").after(" <b>After text</b>.");
+  });
+
+   $("#Before").click(function(){
+    $("#ex4").before(" <b>Before text</b>.");
+  });
+
+  $("#Appendli").click(function(){
+    $("ol").append("<li>Appended item</li>");
+  });
+  $("#Prependli").click(function(){
+    $("ol").prepend("<li>Prepend item</li>");
+  });
+});
+</script>
+</head>
+<body>
+
+<p id="ex1">This is a Append Example.</p>
+<p id="ex2">This is a Prepend Example.</p>
+
+<p id="ex3">This is a After Example.</p>
+<p id="ex4">This is a Before Example.</p>
+
+<div>
+<p id="add">This is a function Example.</p>
+</div>
+<ol>
+  <li>List item 1</li>
+  <li>List item 2</li>
+  <li>List item 3</li>
+</ol>
+<button onclick="appendText()">Append text Function</button>
+<button id="Append">Append text</button>
+<button id="Prepend">Prepend text</button>
+<button id="After">After text</button>
+<button id="Before">Before text</button>
+<button id="Appendli">Append list items</button>
+<button id="Prependli">Prepend list items</button>
+
+</body>
+</html>

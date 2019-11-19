@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script src="jquery-3.3.1.js"></script>
+<script>
+$(document).ready(function(){
+  $("#text").click(function(){
+    $("#test1").text("Set Text using text()");
+  });
+  $("#html").click(function(){
+    $("#test2").html("Set <u>html</u> Text <sup>hello</sup> using html()");
+  });
+  $("#val").click(function(){
+    $("#input").val("Mahendra");
+  });
+
+});
+</script>
+</head>
+<body>
+
+<p id="test1">This is set Text</p>
+<p id="test2">This is set Html context.</p>
+<input type="text" name="" id="input">
+<br>
+<br>
+<button id="text">Set Text</button>
+<button id="html">Set HTML</button>
+<button id="val">Set Val</button>
+
+</body>
+</html>
