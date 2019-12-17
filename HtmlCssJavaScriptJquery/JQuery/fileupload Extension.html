@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+</head>
+<body>
+<form action="" method="get">
+	<table>
+		<tr>
+			<td> select file : </td><td><input type="file" name="file" id="file1"></td>
+		</tr>
+		<tr>
+			<td colspan="2"><input type="submit" name="submit" value="submit" id="submit"></td>
+			<span id="msg"></span>
+		</tr>
+	</table>
+</form>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script type="text/javascript">
+	$(document).ready(function(){
+		$("#submit").click(function(){
+			var file = $("#file1").val();
+			//var size=$('#file')[0].files[0].size;
+			//var extension=$('#file1').val().replace(/^.*\./, '');
+			var extension =  $('#file1').val().split('.').pop().toLowerCase();
+			
+			if(file == "") {
+				alert("empty");
+				$("#msg").text("Hello world!");
+  			}
+  			else if($.inArray(extension, ['gif','png','jpg','jpeg']) == -1) {
+    			alert('invalid extension!');
+    			$("#msg").text("invalid extension!");
+			}
+		});
+	});
+</script>
+</body>
+</html>
