@@ -1,0 +1,3693 @@
+package com.hdg.admin.report;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.ResourceBundle;
+
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.poi.hssf.usermodel.HSSFCellStyle;
+import org.apache.poi.hssf.usermodel.HSSFDateUtil;
+import org.apache.poi.hssf.usermodel.HSSFFont;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.hssf.util.HSSFColor;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DataValidation;
+import org.apache.poi.ss.usermodel.DataValidationConstraint;
+import org.apache.poi.ss.usermodel.DataValidationHelper;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.ss.util.CellRangeAddressList;
+import org.apache.poi.ss.util.NumberToTextConverter;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFDataValidationHelper;
+import org.apache.poi.xssf.usermodel.XSSFFont;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.struts.upload.FormFile;
+
+import com.hdg.admin.action.ParaActionBase;
+import com.hdg.admin.action.globalSettings.ItemCatalogListAction;
+import com.hdg.admin.action.participant.ParticipantBulkInsertAction;
+import com.hdg.admin.form.FormBase;
+import com.hdg.admin.form.participant.ParticipantFormVO;
+import com.hdg.admin.service.event.RFQService;
+import com.hdg.admin.service.globalSettings.ItemCatalogService;
+import com.hdg.admin.service.participant.ParticipantService;
+import com.hdg.client.cabin.ListCover;
+import com.hdg.client.cabin.ParticipantAdditionalFieldCover;
+import com.hdg.client.cabin.ParticipantCover;
+import com.hdg.client.cabin.RFQCover;
+import com.hdg.client.cabin.admin.AdminCAB;
+import com.hdg.client.cabin.admin.AdminLogCAB;
+import com.hdg.client.cabin.globalSettings.CompanyItemCatalogCAB;
+import com.hdg.client.cabin.globalSettings.CompanyMeasureUnitCAB;
+import com.hdg.client.entry.CompanyItemCatalogEntry;
+import com.hdg.client.entry.ParticipantAdditionalFieldOptions;
+import com.hdg.client.entry.ParticipantInfoEntry;
+import com.hdg.client.exception.bll.BLLException;
+import com.hdg.client.exception.service.ServiceLocatorException;
+import com.hdg.client.javaBean.CompanyInfo;
+import com.hdg.common.SysSetting;
+import com.hdg.entity.persistance.dal.ExecuteSqlInLoop;
+import com.netx.FormatorNetx;
+import com.netx.General;
+import com.netx.util.LogWriter;
+
+import excelreader.CellData;
+import excelreader.ExcelReader;
+import excelreader.ExcelReaderWriter;
+import excelreader.ExcelStyleCreator;
+import excelreader.ExcelStyleSet;
+
+public class ParticipantExcelSpecification extends ReportBase implements java.io.Serializable
+{
+
+	public ParticipantExcelSpecification(FormFile formFile, String filePath, FormatorNetx formator, ResourceBundle resourceBundle)
+	{
+		super(formFile, filePath, formator, resourceBundle);
+	}
+	public ParticipantExcelSpecification(String filePath, FormatorNetx formator, ResourceBundle resourceBundle)
+	{
+		super(filePath, formator, resourceBundle);
+	}
+	public ParticipantExcelSpecification(String filePath, FormatorNetx formator, ResourceBundle resourceBundle, ListCover listCover)
+	{
+		super(filePath, formator, resourceBundle, listCover);
+	}
+	public String[] readFileToCreateTemplateObject(FormatorNetx formator, HttpServletRequest request, String URL1, String RemoteIP) throws Exception
+	{
+
+		String fileName = this.fileName;
+		String fileExtension = fileName.substring(fileName.lastIndexOf('.') + 1);
+		System.out.println(fileExtension);
+
+		ArrayList<ParticipantFormVO> participantFormVOList = null;
+		ParticipantFormVO participantFormVO = null;
+		ParticipantService participantService = new ParticipantService(request);
+		AdminCAB adminCAB = new AdminCAB();
+		AdminLogCAB adminLogCAB = new AdminLogCAB();
+		ParaActionBase paraActionBase = new ParaActionBase();
+		ParticipantBulkInsertAction participantBulkInsertAction = null;
+		String cellValue = "";
+		String errorMessage = null;
+
+		//	String country = null;
+		String firstInvalidNumberSecondFile[] = null;
+		try
+		{
+			paraActionBase.session = request.getSession();
+			paraActionBase.companyInfo = (CompanyInfo) paraActionBase.session.getAttribute("companyInfo");
+			participantBulkInsertAction = new ParticipantBulkInsertAction();
+			if (fileExtension.equals("xls"))
+			{
+				workbook1 = new HSSFWorkbook(new FileInputStream(this.filePath + this.fileName));
+			}
+			if (fileExtension.equals("xlsx"))
+			{
+				workbook1 = new XSSFWorkbook(new FileInputStream(this.filePath + this.fileName));
+			}
+
+			if (CompareExcel(workbook1, request))
+			{
+				Sheet sheet = workbook1.getSheet("Bulk Insert Participants");
+				if (sheet != null)
+				{
+					//before loop
+					ExecuteSqlInLoop executeSqlInLoopCountry = null;
+					ExecuteSqlInLoop executeSqlInLoopState = null;
+
+					try
+					{
+
+						//30/11/2015 for country
+						executeSqlInLoopCountry = new ExecuteSqlInLoop();
+						executeSqlInLoopCountry.openSql("select countryCode from CountryMaster where lower(countryName)=?");
+						//end
+
+						//30/11/2015 for state
+						executeSqlInLoopState = new ExecuteSqlInLoop();
+						executeSqlInLoopState.openSql("select stateMasterID from StateMaster where lower(stateName)=? and countryMasterID=?");
+						//end
+
+						participantFormVOList = new ArrayList<ParticipantFormVO>();
+
+						int lastRowOfSheet = sheet.getLastRowNum();
+						//ystem.out.println("lastRowOfSheet" + lastRowOfSheet);
+						int rowNum = 7;
+						String stateName = "";
+						Row row = null;
+						Cell cell = null;
+						while (rowNum <= lastRowOfSheet)
+						{
+							try
+							{
+								row = sheet.getRow(rowNum);
+
+								participantFormVO = new ParticipantFormVO();
+								if (row != null)
+								{
+									int colNum = 0;
+									cell = row.getCell((short) colNum);
+									if (cell == null)
+									{
+										participantFormVO.setLoginID(" ");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+
+										//	Double d = new Double(cell.getStringCellValue());
+										//		long i = d.longValue();
+										//			String loginID = Long.toString(i);
+										//	participantFormVO.setCompanyUserID(companyUserID);
+										//			participantFormVO.setLoginID(loginID);
+										participantFormVO.setLoginID(cell.getStringCellValue());
+										////ystem.out.println("UserID" + " " + participantFormVO.getLoginID());
+									}
+
+									cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setReferenceno("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										participantFormVO.setReferenceno(cell.getStringCellValue());
+										//			//ystem.out.println("Referenceno" + " " + participantFormVO.getReferenceno());
+									}
+
+									cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setCompanyName("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										participantFormVO.setCompanyName(cell.getStringCellValue());
+										//		//ystem.out.println("CompanyName" + " " + participantFormVO.getCompanyName());
+									}
+
+									cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setcompanyURL("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										participantFormVO.setcompanyURL(cell.getStringCellValue());
+										//		//ystem.out.println("companyURL" + " " + participantFormVO.getcompanyURL());
+									}
+									/*	111 HIC Exchange work Start*/
+
+									if (paraActionBase.companyInfo.getCompanyID() != SysSetting.HIC_Exchange_CompanyID)
+									{
+										cell = row.getCell((short) ++colNum);
+										if (cell == null)
+										{
+											participantFormVO.setYearOfInCorporation("");
+										}
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+										{
+											Double d = new Double(cell.getNumericCellValue());
+											long i = d.longValue();
+											String yearOfInCorporat = Long.toString(i);
+											participantFormVO.setYearOfInCorporation(yearOfInCorporat);
+											//			//ystem.out.println("YearOfInCorporation" + " " + participantFormVO.getYearOfInCorporation());
+										}
+
+										//27/11/2015
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+										{
+											participantFormVO.setYearOfInCorporation(cell.getStringCellValue());
+
+										}
+									}
+
+									//end 27/11/2015
+
+									cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setBussinessType("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+									{
+										Double d = new Double(cell.getNumericCellValue());
+										long i = d.longValue();
+										String businessTypeValue = Long.toString(i);
+										participantFormVO.setBussinessType(businessTypeValue);
+										//	participantFormVO.setUserType(String.valueOf(cell.getNumericCellValue()));
+										//			//ystem.out.println("UserType" + " " + participantFormVO.getUserType());
+									}
+
+									//27/11/2015
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										//participantFormVO.setUserType(cell.getStringCellValue());
+
+										String businessTypeValue = cell.getStringCellValue();
+										if (businessTypeValue.equals(General.getMessage(resourceBundle, "SupplierOf")) || businessTypeValue.equals(General.getMessage(resourceBundle, "ServiceProvider")))
+											participantFormVO.setBussinessType("1");
+										else if (businessTypeValue.equals(General.getMessage(resourceBundle, "Manufacturer")) || businessTypeValue.equals(General.getMessage(resourceBundle, "NaturalGas")))
+											participantFormVO.setBussinessType("2");
+										else if (businessTypeValue.equals(General.getMessage(resourceBundle, "Power")))
+											participantFormVO.setBussinessType("5");
+
+									}
+
+									//end 27/11/2015
+									if (paraActionBase.companyInfo.getCompanyID() != SysSetting.HIC_Exchange_CompanyID)
+									{
+										cell = row.getCell((short) ++colNum);
+										if (cell == null)
+										{
+											participantFormVO.setUserTypeIfOther("");
+										}
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+										{
+											participantFormVO.setUserTypeIfOther("5");
+											//				//ystem.out.println("UserTypeIfOther" + " " + participantFormVO.getUserTypeIfOther());
+										}
+									}
+									/*	111 HIC Exchange work End*/
+
+									cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setFirstName(" ");
+
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										participantFormVO.setFirstName(cell.getStringCellValue());
+									}
+
+									cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setLastName("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										participantFormVO.setLastName(cell.getStringCellValue());
+										//		//ystem.out.println("last name" + " " + participantFormVO.getLastName());
+									}
+
+									cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setEmail("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										participantFormVO.setEmail(cell.getStringCellValue());
+									}
+
+									cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setDesignation("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										participantFormVO.setDesignation(cell.getStringCellValue());
+									}
+
+									cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setDevision("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										participantFormVO.setDevision(cell.getStringCellValue());
+									}
+
+									cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setAddress1("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										participantFormVO.setAddress1(cell.getStringCellValue());
+									}
+
+									cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setAddress2("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										participantFormVO.setAddress2(cell.getStringCellValue());
+									}
+
+									/*---------setCity--------start--------*/
+									cell = row.getCell((short) ++colNum);
+
+									if (cell == null)
+									{
+										participantFormVO.setCity("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										participantFormVO.setCity(cell.getStringCellValue());
+									}
+
+									/*---------setCity-------end---------*/
+
+									/*------------------------set State-------start--------*/
+									cell = row.getCell((short) ++colNum);
+
+									if (cell == null)
+									{
+										participantFormVO.setStateMasterID(" ");
+										participantFormVO.setStateMasterIDLong(0);
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										//30/11/205
+										stateName = cell.getStringCellValue();
+										participantFormVO.setStateMasterIDString(stateName);
+										stateName = trimLower(stateName);
+
+										//end
+									}
+
+									/*------------------------set State------------end---*/
+									/*------------------set zip code--------------start------*/
+									cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setZipCode("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+									{
+										Double d = new Double(cell.getNumericCellValue());
+										long i = d.longValue();
+										String zipCode = Long.toString(i);
+										participantFormVO.setZipCode(zipCode);
+									}
+
+									//27/11/2015
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										participantFormVO.setZipCode(cell.getStringCellValue());
+									}
+									//end 27/11/2015
+
+									/*------------------set zip code--------------end------*/
+
+									/*------------------set country--------------start------*/
+									cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setCountryMasterID(" ");
+										participantFormVO.setCountryMasterIDLong(0);
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										//30/11/205
+										String countryName = cell.getStringCellValue();
+										participantFormVO.setCountryMasterIDString(countryName);
+										countryName = trimLower(countryName);
+										participantFormVO.setCountryMasterIDLong(getCountryId(countryName, executeSqlInLoopCountry));
+										participantFormVO.setCountryMasterID(participantFormVO.getCountryMasterIDLong() + "");
+										participantFormVO.setStateMasterIDLong(getStateId(stateName, participantFormVO.getCountryMasterIDLong(), executeSqlInLoopState));
+										participantFormVO.setStateMasterID(participantFormVO.getStateMasterIDLong() + "");
+										//end
+									}
+
+									/*------------------set country--------------end------*/
+									/*****************set Phonecity code************/
+
+									cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setPhoneCityCode("");
+
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+									{
+
+										Double d = new Double(cell.getNumericCellValue());
+										long i = d.longValue();
+										String phoneCityCode = Long.toString(i);
+										participantFormVO.setPhoneCityCode(phoneCityCode);
+									}
+
+									//27/11/2015
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+
+										participantFormVO.setPhoneCityCode(cell.getStringCellValue());
+									}
+									/*****END************set Phonecity code************/
+
+									cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setPhone("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+									{
+
+										Double d = new Double(cell.getNumericCellValue());
+										long i = d.longValue();
+										String phone = Long.toString(i);
+										participantFormVO.setPhone(phone);
+									}
+
+									//27/11/2015
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+
+										participantFormVO.setPhone(cell.getStringCellValue());
+									}
+									/******************************************/
+
+									cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setPhoneExtension("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+									{
+
+										Double d = new Double(cell.getNumericCellValue());
+										long i = d.longValue();
+										String phoneExtension = Long.toString(i);
+										participantFormVO.setPhoneExtension(phoneExtension);
+									}
+
+									//27/11/2015
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+
+										participantFormVO.setPhoneExtension(cell.getStringCellValue());
+
+									}
+
+									/****************************************************/
+									//end 27/11/2015
+
+									/*cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setFax("");
+									}
+									else if (cell != null && cell.getCellType() == HSSFCell.CELL_TYPE_NUMERIC)
+									{
+										Double d = new Double(cell.getNumericCellValue());
+										long i = d.longValue();
+										String fax = Long.toString(i);
+										participantFormVO.setFax(fax);
+										//				//ystem.out.println("Fax" + " " + participantFormVO.getFax());
+									}
+									
+									//27/11/2015
+									else if (cell != null && cell.getCellType() == HSSFCell.CELL_TYPE_STRING)
+									{
+										participantFormVO.setFax(cell.getStringCellValue());
+									}*/
+									//end 27/11/2015
+
+									cell = row.getCell((short) ++colNum);
+									if (cell == null)
+									{
+										participantFormVO.setMobile("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+									{
+
+										Double d = new Double(cell.getNumericCellValue());
+										long i = d.longValue();
+										String mobile = Long.toString(i);
+										participantFormVO.setMobile(mobile);
+
+									}
+
+									//27/11/2015
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										participantFormVO.setMobile(cell.getStringCellValue());
+									}
+									//end 27/11/2015
+
+									participantFormVOList.add(participantFormVO);
+								}
+							}
+
+							catch (Exception e)
+							{
+								// TODO: handle exception
+								e.printStackTrace();
+							}
+							finally
+							{}
+							rowNum++;
+						}
+					}
+					catch (Exception exception)
+					{
+						exception.printStackTrace();
+					}
+					finally
+					{
+						if (executeSqlInLoopCountry != null)
+						{
+							try
+							{
+								executeSqlInLoopCountry.close();
+							}
+							catch (Exception e)
+							{
+								e.printStackTrace();
+							}
+							executeSqlInLoopCountry = null;
+						}
+						//to be closed
+						if (executeSqlInLoopState != null)
+						{
+							try
+							{
+								executeSqlInLoopState.close();
+							}
+							catch (Exception e)
+							{
+								e.printStackTrace();
+							}
+							executeSqlInLoopState = null;
+						}
+
+					}
+
+					//validation loop
+					for (int i = 0; i < participantFormVOList.size(); i++)
+					{
+
+						participantFormVO = participantFormVOList.get(i);
+						participantFormVO.validate();
+						//			//ystem.out.println("Valid:----------------------" + participantFormVO.isValid());
+						//			//ystem.out.println("Message:----------------------" + participantFormVO.getMessage());
+						participantFormVO.setMessage(participantFormVO.getMessage());
+					}
+
+					//insert loop
+					for (int i = 0; i < participantFormVOList.size(); i++)
+					{
+						System.out.println("=======================================================================================================================");
+						System.out.println("Hello	");
+						System.out.println("=======================================================================================================================");
+
+						participantFormVO = participantFormVOList.get(i);
+						if (participantFormVO.isValid())
+						{
+							participantBulkInsertAction.insertParticipant(formator, participantFormVO, request, participantService, adminLogCAB, paraActionBase, URL1, RemoteIP);
+							//			//ystem.out.println("participantFormVO :" + participantFormVO.getFirstName() + "-->" + participantFormVO.isInserted());
+						}
+					}
+					firstInvalidNumberSecondFile = prepareNotInsertedParticipant(participantFormVOList, paraActionBase.companyInfo);
+					//				participantFormVO.setInValidCount(testCount);
+				}
+
+				//15feb2016
+
+			}
+			else
+			{
+				//ystem.out.println("fffffffffffffffffffffffffff");
+				firstInvalidNumberSecondFile = InvalidSheetFormate();
+			}
+			//end
+
+		}
+		catch (Exception exception)
+		{
+			LogWriter.logError("readFileToCreateTemplateObject() :: " + exception);
+			exception.printStackTrace();
+			throw new BLLException(exception);
+		}
+		finally
+		{}
+		return firstInvalidNumberSecondFile;
+	}
+
+	//create excel sheet notInsertedParticipant
+
+	public String[] prepareNotInsertedParticipant(ArrayList<ParticipantFormVO> participantFormVOList, CompanyInfo companyInfo)
+	{
+		String firstInvalidNumberSecondFile[] = new String[2];
+		int insetedCount = 0;
+		int notInsertedCount = 0;
+
+		ParticipantCopyExcel participantCopyExcel = new ParticipantCopyExcel();
+		File afile1 = participantCopyExcel.copyInvalidParticipantExcel(companyInfo);
+
+		String invalidEntryLink = SysSetting.PROTOCOL + companyInfo.getCompanyMainURL() + SysSetting.CONTEXT + "/TEMP_LOCAL_PATH/" + afile1.getName();
+
+		try
+		{
+			//create excel sheet
+			workbook = new HSSFWorkbook(new FileInputStream(afile1));
+			sheet = workbook.getSheet("Bulk Insert Participants");
+
+			ParticipantFormVO participantFormVO;
+			int rowNum = 7;
+			for (int i = 0; i < participantFormVOList.size(); i++)
+			{
+				participantFormVO = participantFormVOList.get(i);
+				if (!participantFormVO.isInserted())
+				{
+					notInsertedCount++;
+					//write into excel]
+					if (sheet != null)
+					{
+						try
+						{
+							row = sheet.createRow(rowNum);
+							int colNum = 0;
+							cell = row.createCell((short) colNum);
+							cell.setCellValue(participantFormVO.getLoginID());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getReferenceno());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getCompanyName());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getcompanyURL());
+
+							/*	111 HIC Exchange work Start*/
+							if (companyInfo.getCompanyID() != SysSetting.HIC_Exchange_CompanyID)
+							{
+								cell = row.createCell((short) ++colNum);
+								cell.setCellValue(participantFormVO.getYearOfInCorporation());
+							}
+
+							if (companyInfo.getCompanyID() != SysSetting.HIC_Exchange_CompanyID)
+							{
+								cell = row.createCell((short) ++colNum);
+
+								String businessTypeValue = participantFormVO.getBussinessType();
+
+								if (businessTypeValue != null && businessTypeValue.equals("1"))
+									cell.setCellValue("SupplierOf");
+								else if (businessTypeValue != null && businessTypeValue.equals("2"))
+									cell.setCellValue("Manufacturer");
+
+							}
+
+							if (companyInfo.getCompanyID() == SysSetting.HIC_Exchange_CompanyID)
+							{
+								cell = row.createCell((short) ++colNum);
+
+								String businessTypeValue = participantFormVO.getBussinessType();
+								if (businessTypeValue.equals("1"))
+									cell.setCellValue("ServiceProvider");
+								else if (businessTypeValue.equals("2"))
+									cell.setCellValue("NaturalGas");
+								else if (businessTypeValue.equals("5"))
+									cell.setCellValue("Power");
+
+							}
+							/*	111 HIC Exchange work end*/
+
+							//cell.setCellValue(participantFormVO.getUserType());
+							/*	111 HIC Exchange work Start*/
+							if (companyInfo.getCompanyID() != SysSetting.HIC_Exchange_CompanyID)
+							{
+								cell = row.createCell((short) ++colNum);
+								cell.setCellValue(participantFormVO.getUserTypeIfOther());
+							}
+
+							/*	111 HIC Exchange work end*/
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getFirstName());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getLastName());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getEmail());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getDesignation());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getDevision());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getAddress1());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getAddress2());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getCity());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getStateMasterIDString());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getZipCode());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getCountryMasterIDString());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getPhoneCityCode());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getPhone());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getPhoneExtension());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getFax());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getMobile());
+
+							cell = row.createCell((short) ++colNum);
+							cell.setCellValue(participantFormVO.getMessage());
+
+							FileOutputStream fos = new FileOutputStream(afile1);
+							workbook.write(fos);
+							fos.close();
+
+						}
+						catch (Exception exception)
+						{
+							exception.printStackTrace();
+						}
+						finally
+						{}
+					}
+					rowNum++;
+				}
+			}
+		}
+		catch (Exception exception)
+		{
+			exception.printStackTrace();
+		}
+		//	//ystem.out.println("notinserted=============================" + " " + notInsertedCount);
+		firstInvalidNumberSecondFile[0] = "" + notInsertedCount;
+		firstInvalidNumberSecondFile[1] = invalidEntryLink;
+		return firstInvalidNumberSecondFile;
+	}
+	private long getCountryId(String countryName, ExecuteSqlInLoop executeSqlInLoop) throws Exception
+	{
+		return executeSqlInLoop.executeForSingleLongValue(countryName, 0, 0, 0);
+	}
+	private long getStateId(String stateName, long countryID, ExecuteSqlInLoop executeSqlInLoop) throws Exception
+	{
+
+		long stateMasterID = executeSqlInLoop.executeForSingleLongValue(stateName, countryID, 0, 0);
+		//		if (stateMasterID <= 0)
+		//		{
+		//			stateMasterID = executeSqlInLoop.executeForSingleLongValue("Other", countryID, 0, 0);
+		//		}
+		return stateMasterID;
+	}
+	private long getCompanyMeasureUnitID1(String unitName, long companyID, ExecuteSqlInLoop executeSqlInLoop) throws Exception
+	{
+
+		long companyMeasureUnitID = executeSqlInLoop.executeForSingleLongValue(unitName, companyID, 0, 0);
+		return companyMeasureUnitID;
+	}
+	private String trimLower(String data)
+	{
+		if (data == null)
+		{
+			return "";
+		}
+		else
+		{
+			return data.trim().toLowerCase();
+		}
+	}
+
+	public boolean CompareExcel(Workbook workbook, HttpServletRequest request) throws Exception
+	{
+		ParaActionBase paraActionBase = new ParaActionBase();
+		paraActionBase.session = request.getSession();
+		paraActionBase.companyInfo = (CompanyInfo) paraActionBase.session.getAttribute("companyInfo");
+
+		boolean status = true;
+		Cell cell = null;
+		Sheet sheet = workbook.getSheet("Bulk Insert Participants");
+		String getSheetNameFromUserUploaded = workbook.getSheetName(0);
+		System.out.println("=======================================================================================================================");
+		System.out.println(getSheetNameFromUserUploaded);
+		System.out.println("=======================================================================================================================");
+
+		if (getSheetNameFromUserUploaded.equals("Bulk Insert Participants"))
+		{
+
+			if (sheet != null)
+			{
+				try
+				{
+					Row row = sheet.getRow(6);
+					if (row != null)
+					{
+						int colNum = 0;
+						int count = 0;
+
+						cell = row.getCell((short) colNum);
+						String userId = cell.getStringCellValue().trim();
+						if (!userId.equalsIgnoreCase("User ID *"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String supplierId = cell.getStringCellValue().trim();
+						if (!supplierId.equalsIgnoreCase("Supplier ID"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String companyName = cell.getStringCellValue().trim();
+						if (!companyName.equalsIgnoreCase("Company Name *"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String companyWebsite = cell.getStringCellValue().trim();
+						if (!companyWebsite.equalsIgnoreCase("Company Website"))
+						{
+							count++;
+						}
+
+						/*	111 HIC Exchange work Start*/
+						if (paraActionBase.companyInfo.getCompanyID() != SysSetting.HIC_Exchange_CompanyID)
+						{
+							cell = row.getCell((short) ++colNum);
+							String yearOfCorporation = cell.getStringCellValue().trim();
+							if (!yearOfCorporation.equalsIgnoreCase("Year Of Incorporation"))
+							{
+								count++;
+							}
+						}
+						/*	111 HIC Exchange work End*/
+
+						cell = row.getCell((short) ++colNum);
+						String registration = cell.getStringCellValue().trim();
+						if (!registration.equalsIgnoreCase("Registration As"))
+						{
+							count++;
+						}
+
+						/*	111 HIC Exchange work Start*/
+						if (paraActionBase.companyInfo.getCompanyID() != SysSetting.HIC_Exchange_CompanyID)
+						{
+							cell = row.getCell((short) ++colNum);
+							String other = cell.getStringCellValue().trim();
+							if (!other.equalsIgnoreCase("Other"))
+							{
+								count++;
+							}
+						}
+						/*	111 HIC Exchange work End*/
+
+						cell = row.getCell((short) ++colNum);
+						String firstName = cell.getStringCellValue().trim();
+						if (!firstName.equalsIgnoreCase("First Name *"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String lastName = cell.getStringCellValue().trim();
+						if (!lastName.equalsIgnoreCase("Last Name *"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String email = cell.getStringCellValue().trim();
+						if (!email.equalsIgnoreCase("Email *"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String designation = cell.getStringCellValue().trim();
+						if (!designation.equalsIgnoreCase("Designation/ Title"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String devision = cell.getStringCellValue().trim();
+						if (!devision.equalsIgnoreCase("Devision / Department"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String address1 = cell.getStringCellValue().trim();
+						if (!address1.equalsIgnoreCase("Address1"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String address2 = cell.getStringCellValue().trim();
+						if (!address2.equalsIgnoreCase("Address2"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String city = cell.getStringCellValue().trim();
+						if (!city.equalsIgnoreCase("City"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String state = cell.getStringCellValue().trim();
+						if (!state.equalsIgnoreCase("State/Province/ Region *"))
+						{
+							count++;
+						}
+
+						cell = row.getCell((short) ++colNum);
+						String zipcode = cell.getStringCellValue().trim();
+						if (!zipcode.equalsIgnoreCase("Postal Code/ Zip Code"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String country = cell.getStringCellValue().trim();
+						if (!country.equalsIgnoreCase("Country *"))
+						{
+							count++;
+						}
+
+						cell = row.getCell((short) ++colNum);
+						String phoneCityCode = cell.getStringCellValue().trim();
+						if (!phoneCityCode.equalsIgnoreCase("Phone City Code"))
+						{
+							count++;
+						}
+
+						cell = row.getCell((short) ++colNum);
+						String phone = cell.getStringCellValue().trim();
+						if (!phone.equalsIgnoreCase("Phone"))
+						{
+							count++;
+						}
+
+						cell = row.getCell((short) ++colNum);
+						String phoneExt = cell.getStringCellValue().trim();
+						if (!phoneExt.equalsIgnoreCase("Phone Ext."))
+						{
+							count++;
+						}
+
+						cell = row.getCell((short) ++colNum);
+						String mobile = cell.getStringCellValue().trim();
+						if (!mobile.equalsIgnoreCase("Mobile"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						if (cell != null)
+						{
+							String remark = cell.getStringCellValue().trim();
+							if (!remark.equalsIgnoreCase("Remark"))
+							{
+								count++;
+							}
+						}
+						if (count > 0)
+						{
+							status = false;
+						}
+						else
+						{
+							status = true;
+						}
+					}
+				}
+				catch (Exception e)
+				{
+					// TODO: handle exception
+					e.printStackTrace();
+				}
+				finally
+				{}
+			}
+		}
+		else
+		{
+			status = false;
+		}
+		return status;
+	}
+
+	public String[] InvalidSheetFormate()
+	{
+		String firstInvalidNumberSecondFile[] = new String[2];
+		int notInsertedCount = -1;
+		String invalidEntryLink = null;
+		firstInvalidNumberSecondFile[0] = "" + notInsertedCount;
+		firstInvalidNumberSecondFile[1] = invalidEntryLink;
+		return firstInvalidNumberSecondFile;
+	}
+	
+	public void additionalfieldExeclFileCreate(String fileNameWithPath, String filename, HttpServletRequest request, ParaActionBase paraActionBase) throws Exception
+	{
+		xssfWorkbook = new XSSFWorkbook();
+
+		xssfSheet = xssfWorkbook.createSheet("Bulk Insert Participants");
+		xssfSheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 4));
+		xssfSheet.addMergedRegion(new CellRangeAddress(4, 4, 0, 4));
+
+		xssfvalueFontBold = xssfWorkbook.createFont();
+		xssfvalueFontBold.setFontName("Arial");
+		xssfvalueFontBold.setFontHeightInPoints((short) 12);
+		xssfvalueFontBold.setBoldweight(XSSFFont.BOLDWEIGHT_BOLD);
+		xssfvalueFontBold.setColor(IndexedColors.WHITE.getIndex());
+
+		this.xssfItemHeaderCellStyleRightBorderMedium = xssfWorkbook.createCellStyle();
+		this.xssfItemHeaderCellStyleRightBorderMedium.setFont(valueFontBold);
+		this.xssfItemHeaderCellStyleRightBorderMedium.setAlignment(XSSFCellStyle.ALIGN_CENTER);
+		this.xssfItemHeaderCellStyleRightBorderMedium.setBorderBottom(XSSFCellStyle.BORDER_THIN);
+		this.xssfItemHeaderCellStyleRightBorderMedium.setBorderLeft(XSSFCellStyle.BORDER_THIN);
+		this.xssfItemHeaderCellStyleRightBorderMedium.setBorderRight(XSSFCellStyle.BORDER_MEDIUM);
+		this.xssfItemHeaderCellStyleRightBorderMedium.setBorderTop(XSSFCellStyle.BORDER_THIN);
+		this.xssfItemHeaderCellStyleRightBorderMedium.setFillForegroundColor(IndexedColors.RED.getIndex());
+		this.xssfItemHeaderCellStyleRightBorderMedium.setFillPattern(XSSFCellStyle.SOLID_FOREGROUND);
+		this.xssfItemHeaderCellStyleRightBorderMedium.setWrapText(true);
+		xssfrow = xssfSheet.createRow(1);
+		xssfcell = xssfrow.createCell((short) 0);
+		xssfrow.setHeight((short) 500);
+		if (xssfcell != null)
+		{
+			xssfcell.setCellStyle(this.xssfItemHeaderCellStyleRightBorderMedium);
+			xssfcell.setCellValue("Bulk Insert Participants");
+		}
+		xssfrow = xssfSheet.createRow(4);
+		xssfcell = xssfrow.createCell((short) 0);
+		if (xssfcell != null)
+		{
+
+			xssfcell.setCellValue("Note : ");
+		}
+
+		createExcelWithadditionalField(xssfSheet, xssfWorkbook, request, paraActionBase);
+
+		try
+		{
+
+			fileOutputStream = new FileOutputStream(fileNameWithPath);
+
+			xssfWorkbook.write(fileOutputStream);
+
+		}
+		catch (Exception bllException)
+		{
+
+		}
+		finally
+		{
+			fileOutputStream.flush();
+			fileOutputStream.close();
+			xssfWorkbook.close();
+		}
+
+	}
+	// Static  column name  
+	public void createExcelWithadditionalField(XSSFSheet sheetnew, XSSFWorkbook workbooknew, HttpServletRequest request, ParaActionBase paraActionBase1) throws IOException, SQLException, ServiceLocatorException
+	{
+
+		int col = 0;
+		String filedName[] = { "User ID *", "Supplier ID", "Company Name *", "Company Website", "Year Of Incorporation", "Registration As", "Other", "First Name *", "Last Name *", "Email *", "Designation/ Title", "Devision / Department", "Address1", "Address2", "City", "State/Province/ Region *", "Postal Code/ Zip Code", "Country *", "Phone City Code", "Phone ", "Phone Ext.", "Mobile" };
+
+		xssfvalueFontBold = xssfWorkbook.createFont();
+		xssfvalueFontBold.setFontName("Arial");
+		xssfvalueFontBold.setFontHeightInPoints((short) 8);
+		xssfvalueFontBold.setBoldweight(HSSFFont.BOLDWEIGHT_BOLD);
+
+		this.xssfItemHeaderCellStyleRightBorderMedium = xssfWorkbook.createCellStyle();
+		this.xssfItemHeaderCellStyleRightBorderMedium.setFont(xssfvalueFontBold);
+		this.xssfItemHeaderCellStyleRightBorderMedium.setAlignment(HorizontalAlignment.CENTER);
+		this.xssfItemHeaderCellStyleRightBorderMedium.setVerticalAlignment(VerticalAlignment.CENTER);
+		this.xssfItemHeaderCellStyleRightBorderMedium.setBorderBottom(XSSFCellStyle.BORDER_THIN);
+		this.xssfItemHeaderCellStyleRightBorderMedium.setBorderLeft(XSSFCellStyle.BORDER_THIN);
+		this.xssfItemHeaderCellStyleRightBorderMedium.setBorderRight(XSSFCellStyle.BORDER_MEDIUM);
+		this.xssfItemHeaderCellStyleRightBorderMedium.setBorderTop(XSSFCellStyle.BORDER_THIN);
+		this.xssfItemHeaderCellStyleRightBorderMedium.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+		this.xssfItemHeaderCellStyleRightBorderMedium.setFillPattern(XSSFCellStyle.SOLID_FOREGROUND);
+
+		this.xssfItemHeaderCellStyleRightBorderMedium.setWrapText(true);
+
+		xssfrow = sheetnew.createRow(6);
+		xssfrow.setHeight((short) 800);
+		for (int i = 0; i < filedName.length; i++)
+		{
+
+			xssfcell = xssfrow.createCell((short) col++);
+
+			if (xssfcell != null)
+			{
+				if (i == 9)
+				{
+
+					xssfcell.setCellStyle(xssfItemHeaderCellStyleRightBorderMedium);
+
+					xssfSheet.setColumnWidth((col - 1), 10000);
+					xssfcell.setCellValue(filedName[i]);
+
+				}
+				else if (i == 3)
+				{
+					xssfcell.setCellStyle(xssfItemHeaderCellStyleRightBorderMedium);
+					xssfSheet.setColumnWidth((col - 1), 7000);
+					xssfcell.setCellValue(filedName[i]);
+				}
+				else if (i == 7)
+				{
+					xssfcell.setCellStyle(xssfItemHeaderCellStyleRightBorderMedium);
+					xssfSheet.setColumnWidth((col - 1), 5000);
+					xssfcell.setCellValue(filedName[i]);
+				}
+				else if (i == 8)
+				{
+					xssfcell.setCellStyle(xssfItemHeaderCellStyleRightBorderMedium);
+					xssfSheet.setColumnWidth((col - 1), 5000);
+					xssfcell.setCellValue(filedName[i]);
+				}
+				else if (i == 12)
+				{
+					xssfcell.setCellStyle(xssfItemHeaderCellStyleRightBorderMedium);
+					xssfSheet.setColumnWidth((col - 1), 7000);
+					xssfcell.setCellValue(filedName[i]);
+				}
+				else if (i == 13)
+				{
+					xssfcell.setCellStyle(xssfItemHeaderCellStyleRightBorderMedium);
+					xssfSheet.setColumnWidth((col - 1), 7000);
+					xssfcell.setCellValue(filedName[i]);
+				}
+				else
+				{
+
+					xssfcell.setCellStyle(xssfItemHeaderCellStyleRightBorderMedium);
+
+					xssfSheet.setColumnWidth((col - 1), 5000);
+					xssfcell.setCellValue(filedName[i]);
+				}
+			}
+
+		}
+
+		addtionalField(sheetnew, workbooknew, xssfrow, col, request, paraActionBase1);
+
+	}
+	//dynamic additional field 
+	public void addtionalField(XSSFSheet sheetnew, XSSFWorkbook workbooknew, XSSFRow row, int col, HttpServletRequest request, ParaActionBase paraActionBase1) throws IOException, SQLException, ServiceLocatorException
+	{
+
+		ParticipantService participantService = new ParticipantService(request);
+		ParaActionBase paraAction = paraActionBase1;
+		ArrayList<ParticipantInfoEntry> aditionalFieldList = new ArrayList<ParticipantInfoEntry>();
+		ArrayList<ParticipantAdditionalFieldOptions> aditionalFieldOptionList = new ArrayList<ParticipantAdditionalFieldOptions>();
+
+		//copy additinoal field from globalParticipantField   to ParticipantField  tables
+		ParticipantAdditionalFieldCover participantAdditionalFieldCover = participantService.getParticipantAdditionalFieldWhenCreateForBulkinsert(paraAction.loggedUser.getCompanyID());
+		aditionalFieldList = participantAdditionalFieldCover.getAditionalFieldList();
+		aditionalFieldOptionList = participantAdditionalFieldCover.getParticipantAdditionalFieldOptions();
+
+		DataValidation dataValidation = null;
+		DataValidationConstraint constraint = null;
+		DataValidationHelper validationHelper = null;
+		validationHelper = new XSSFDataValidationHelper(xssfSheet);
+		CellRangeAddressList addressList = null;
+		String aditionalFieldName = "";
+		ArrayList<String> RadioChoice = new ArrayList<String>();
+		ArrayList<String> MultipleChoice = new ArrayList<String>();
+		ArrayList<String> List = new ArrayList<String>();
+		if (aditionalFieldList != null && aditionalFieldList.size() > 0 && aditionalFieldOptionList != null && aditionalFieldOptionList.size() > 0)
+		{
+			for (int i = 0; i < aditionalFieldList.size(); i++)
+			{
+
+				for (int j = 0; j < aditionalFieldOptionList.size(); j++)
+				{
+					if (aditionalFieldList.get(i).getGlobalParticipantFieldID() == aditionalFieldOptionList.get(j).getGlobalParticipantFieldID())
+					{
+						if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 8)
+						{
+							RadioChoice.add(aditionalFieldOptionList.get(j).getOptionName());
+
+						}
+						if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 9)
+						{
+							MultipleChoice.add(aditionalFieldOptionList.get(j).getOptionName());
+
+						}
+						if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 12)
+						{
+							List.add(aditionalFieldOptionList.get(j).getOptionName());
+
+						}
+
+					}
+				}
+			}
+		}
+		String radioChoices[] = RadioChoice.toArray(new String[RadioChoice.size()]);
+		String multipleChoice[] = MultipleChoice.toArray(new String[MultipleChoice.size()]);
+		String list[] = List.toArray(new String[List.size()]);
+
+		for (int i = 0; i < aditionalFieldList.size(); i++)
+		{
+			if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() != 7)
+			{
+				aditionalFieldName = aditionalFieldList.get(i).getFieldName();
+				if (aditionalFieldList.get(i).getRequired() == 1)
+				{
+					aditionalFieldName = aditionalFieldName + " *";
+				}
+
+				xssfcell = row.createCell((short) col++);
+				if (xssfcell != null)
+				{
+
+					if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 1)
+					{
+
+						xssfSheet.setColumnWidth((col - 1), 5000);
+						xssfcell.setCellStyle(xssfItemHeaderCellStyleRightBorderMedium);
+						xssfcell.setCellValue(aditionalFieldName);
+
+					}
+					else if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 2)
+					{
+
+						xssfSheet.setColumnWidth((col - 1), 6000);
+						xssfcell.setCellStyle(xssfItemHeaderCellStyleRightBorderMedium);
+						xssfcell.setCellValue(aditionalFieldName);
+
+					}
+					else
+					{
+
+						xssfSheet.setColumnWidth((col - 1), 3000);
+						xssfcell.setCellStyle(xssfItemHeaderCellStyleRightBorderMedium);
+						xssfcell.setCellValue(aditionalFieldName);
+
+					}
+					// drop down in excel 
+					if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 6)
+					{
+						addressList = new CellRangeAddressList(7, (7 + 100), (col - 1), (col - 1));
+						constraint = validationHelper.createExplicitListConstraint(new String[] { "Yes", "No" });
+						dataValidation = validationHelper.createValidation(constraint, addressList);
+						dataValidation.setSuppressDropDownArrow(true);
+						dataValidation.setShowErrorBox(true);
+						dataValidation.createErrorBox("Invalid Input", "Please select from List!");
+						xssfSheet.addValidationData(dataValidation);
+
+					}
+
+					if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 8)
+					{
+
+						addressList = new CellRangeAddressList(7, (7 + 100), (col - 1), (col - 1));
+						constraint = validationHelper.createExplicitListConstraint(radioChoices);
+						dataValidation = validationHelper.createValidation(constraint, addressList);
+						dataValidation.setSuppressDropDownArrow(true);
+						dataValidation.setShowErrorBox(true);
+						dataValidation.createErrorBox("Invalid Input", "Please select from List!");
+						xssfSheet.addValidationData(dataValidation);
+
+					}
+					if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 9)
+					{
+						addressList = new CellRangeAddressList(7, (7 + 100), (col - 1), (col - 1));
+						constraint = validationHelper.createExplicitListConstraint(multipleChoice);
+						dataValidation = validationHelper.createValidation(constraint, addressList);
+						dataValidation.setSuppressDropDownArrow(true);
+						dataValidation.setShowErrorBox(true);
+						dataValidation.createErrorBox("Invalid Input", "Please select from List!");
+						xssfSheet.addValidationData(dataValidation);
+
+					}
+					if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 12)
+					{
+						addressList = new CellRangeAddressList(7, (7 + 100), (col - 1), (col - 1));
+						constraint = validationHelper.createExplicitListConstraint(list);
+						dataValidation = validationHelper.createValidation(constraint, addressList);
+						dataValidation.setSuppressDropDownArrow(true);
+						
+						
+						dataValidation.setShowErrorBox(true);
+						dataValidation.createErrorBox("Invalid Input", "Please select from List!");
+
+						xssfSheet.addValidationData(dataValidation);
+
+					}
+
+				}
+
+			}
+
+		}
+
+	}
+
+	//hiren
+	public String[] readFileToCreateTemplateObjectWithCustomField(FormatorNetx formator, HttpServletRequest request, String uRL1, String remoteIP, String filePath, String newfileName) throws BLLException
+	{
+
+		String fileExtension = newfileName.substring(newfileName.lastIndexOf('.') + 1);
+		Row row = null;
+		Cell cell = null;
+		Sheet sheet = null;
+		ParticipantCover cover = new ParticipantCover();
+		ArrayList<ParticipantFormVO> participantFormVOList = null;
+		ParticipantFormVO participantFormVO = null;
+		AdminCAB adminCAB = new AdminCAB();
+		AdminLogCAB adminLogCAB = new AdminLogCAB();
+		ParaActionBase paraActionBase = new ParaActionBase();
+		ParticipantBulkInsertAction participantBulkInsertAction = null;
+		String firstInvalidNumberSecondFile[] = null;
+		try
+		{
+			ParticipantService participantService = new ParticipantService(request);
+
+			paraActionBase.session = request.getSession();
+			paraActionBase.companyInfo = (CompanyInfo) paraActionBase.session.getAttribute("companyInfo");
+			participantBulkInsertAction = new ParticipantBulkInsertAction();
+			if (fileExtension.equals("xls"))
+			{
+				workbook1 = new HSSFWorkbook(new FileInputStream(filePath + newfileName));
+			}
+			if (fileExtension.equals("xlsx"))
+			{
+				workbook1 = new XSSFWorkbook(new FileInputStream(filePath + newfileName));
+			}
+
+			//HSSFWorkbook workbook = new HSSFWorkbook(new FileInputStream(filePath + newfileName));
+			sheet = workbook1.getSheet("Bulk Insert Participants");
+			ArrayList<Long> participantlist = new ArrayList<Long>();
+			ArrayList<ParticipantFormVO> invalidateparticipantList = null;
+			ArrayList<ParticipantInfoEntry> aditionalFieldList = new ArrayList<ParticipantInfoEntry>();
+			ArrayList<ParticipantInfoEntry> aditionalFieldList2 = new ArrayList<ParticipantInfoEntry>();
+			ParticipantAdditionalFieldCover participantAdditionalFieldCover = participantService.getParticipantAdditionalFieldWhenCreateForBulkinsert(paraActionBase.companyInfo.getCompanyID());
+			aditionalFieldList = participantAdditionalFieldCover.getAditionalFieldList();
+
+			//use for bean validation
+			aditionalFieldList2 = participantAdditionalFieldCover.getAditionalFieldListSortedByinputtypeMasterId();
+
+			participantFormVOList = new ArrayList<ParticipantFormVO>();
+
+			long countryId = 0;
+			ArrayList<Integer> rowList = new ArrayList<Integer>();
+			int lastRowOfSheet = sheet.getLastRowNum();
+
+			if (CompareExcelWithAdditinalfileds(workbook1, request, aditionalFieldList))
+			{
+				if (sheet != null)
+				{
+					ExecuteSqlInLoop executeSqlInLoopCountry = null;
+					ExecuteSqlInLoop executeSqlInLoopState = null;
+					try
+					{
+						participantFormVOList = new ArrayList<ParticipantFormVO>();
+
+						//30/11/2015 for country
+						executeSqlInLoopCountry = new ExecuteSqlInLoop();
+						executeSqlInLoopCountry.openSql("select countryCode from CountryMaster where lower(countryName)=?");
+						//end
+
+						//30/11/2015 for state
+						executeSqlInLoopState = new ExecuteSqlInLoop();
+						executeSqlInLoopState.openSql("select stateMasterID from StateMaster where lower(stateName)=? and countryMasterID=?");
+						//end
+
+						int rowNum = 7;
+						String stateName = "";
+						while (rowNum <= lastRowOfSheet)
+						{
+							participantFormVO = new ParticipantFormVO();
+							participantFormVO.Listadditional_1 = new ArrayList<String>();
+							participantFormVO.Listadditional_2 = new ArrayList<String>();
+							participantFormVO.Listadditional_3 = new ArrayList<Double>();
+							participantFormVO.Listadditional_4 = new ArrayList<Double>();
+							participantFormVO.Listadditional_5 = new ArrayList<String>();
+							participantFormVO.Listadditional_6 = new ArrayList<String>();
+							participantFormVO.Listadditional_8 = new ArrayList<String>();
+
+							participantFormVO.Listadditional_9 = new ArrayList<String>();
+							participantFormVO.Listadditional_10 = new ArrayList<Long>();
+							participantFormVO.Listadditional_11 = new ArrayList<Long>();
+							participantFormVO.Listadditional_12 = new ArrayList<String>();
+
+							participantFormVO.alladditional = new HashMap<>();
+
+							row = sheet.getRow(rowNum);
+
+							if (row != null)
+							{
+								int colNum = 0;
+								cell = row.getCell((short) colNum++);
+								if (cell == null)
+								{
+									participantFormVO.setLoginID(" ");
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+
+									participantFormVO.setLoginID(cell.getStringCellValue());
+
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+								{
+
+									String str = NumberToTextConverter.toText(cell.getNumericCellValue());
+									participantFormVO.setLoginID(str);
+
+								}
+								cell = row.getCell((short) colNum++);
+								if (cell == null)
+								{
+									participantFormVO.setReferenceno("");
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+									participantFormVO.setReferenceno(cell.getStringCellValue());
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+								{
+
+									String str = NumberToTextConverter.toText(cell.getNumericCellValue());
+									participantFormVO.setReferenceno(str);
+
+								}
+
+								cell = row.getCell((short) colNum++);
+								if (cell == null)
+								{
+									participantFormVO.setCompanyName("");
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+									participantFormVO.setCompanyName(cell.getStringCellValue());
+								}
+
+								if (paraActionBase.companyInfo.getCompanyID() != SysSetting.HIC_Exchange_CompanyID)
+								{
+									cell = row.getCell((short) colNum++);
+									if (cell == null)
+									{
+										participantFormVO.setcompanyURL("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										participantFormVO.setcompanyURL(cell.getStringCellValue());
+
+									}
+
+									cell = row.getCell((short) colNum++);
+									if (cell == null)
+									{
+										participantFormVO.setYearOfInCorporation("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+									{
+										Double d = new Double(cell.getNumericCellValue());
+										long i = d.longValue();
+										String yearOfInCorporat = Long.toString(i);
+										participantFormVO.setYearOfInCorporation(yearOfInCorporat);
+									}
+
+									//27/11/2015
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										participantFormVO.setYearOfInCorporation(cell.getStringCellValue());
+									}
+
+								}
+
+								cell = row.getCell((short) colNum++);
+								if (cell == null)
+								{
+									participantFormVO.setBussinessType("");
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+								{
+									Double d = new Double(cell.getNumericCellValue());
+									long i = d.longValue();
+									String businessTypeValue = Long.toString(i);
+									participantFormVO.setBussinessType(businessTypeValue);
+								}
+
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+									String businessTypeValue = cell.getStringCellValue();
+									if (businessTypeValue.equals(General.getMessage(resourceBundle, "SupplierOf")) || businessTypeValue.equals(General.getMessage(resourceBundle, "ServiceProvider")))
+										participantFormVO.setBussinessType("1");
+									else if (businessTypeValue.equals(General.getMessage(resourceBundle, "Manufacturer")) || businessTypeValue.equals(General.getMessage(resourceBundle, "NaturalGas")))
+										participantFormVO.setBussinessType("2");
+									else if (businessTypeValue.equals(General.getMessage(resourceBundle, "Power")))
+										participantFormVO.setBussinessType("5");
+
+								}
+
+								if (paraActionBase.companyInfo.getCompanyID() != SysSetting.HIC_Exchange_CompanyID)
+								{
+									cell = row.getCell((short) colNum++);
+									if (cell == null)
+									{
+										participantFormVO.setUserTypeIfOther("");
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										participantFormVO.setUserTypeIfOther("5");
+									}
+								}
+
+								cell = row.getCell((short) colNum++);
+								if (cell == null)
+								{
+									participantFormVO.setFirstName("");
+
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+									participantFormVO.setFirstName(cell.getStringCellValue());
+								}
+
+								cell = row.getCell((short) colNum++);
+								if (cell == null)
+								{
+									participantFormVO.setLastName("");
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+									participantFormVO.setLastName(cell.getStringCellValue());
+								}
+
+								cell = row.getCell((short) colNum++);
+								if (cell == null)
+								{
+									participantFormVO.setEmail("");
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+									participantFormVO.setEmail(cell.getStringCellValue());
+
+								}
+
+								cell = row.getCell((short) colNum++);
+								if (cell == null)
+								{
+									participantFormVO.setDesignation("");
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+									participantFormVO.setDesignation(cell.getStringCellValue());
+								}
+
+								cell = row.getCell((short) colNum++);
+								if (cell == null)
+								{
+									participantFormVO.setDevision("");
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+									participantFormVO.setDevision(cell.getStringCellValue());
+								}
+
+								cell = row.getCell((short) colNum++);
+								if (cell == null)
+								{
+									participantFormVO.setAddress1("");
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+									participantFormVO.setAddress1(cell.getStringCellValue());
+								}
+
+								cell = row.getCell((short) colNum++);
+								if (cell == null)
+								{
+									participantFormVO.setAddress2("");
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+									participantFormVO.setAddress2(cell.getStringCellValue());
+								}
+
+								cell = row.getCell((short) colNum++);
+
+								if (cell == null)
+								{
+									participantFormVO.setCity("");
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+									participantFormVO.setCity(cell.getStringCellValue());
+								}
+
+								cell = row.getCell((short) colNum++);
+
+								if (cell == null)
+								{
+									participantFormVO.setStateMasterID(" ");
+									participantFormVO.setStateMasterIDLong(0);
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+									//30/11/205
+									stateName = cell.getStringCellValue();
+									participantFormVO.setStateMasterIDString(stateName);
+									stateName = trimLower(stateName);
+								}
+
+								cell = row.getCell((short) colNum++);
+								if (cell == null)
+								{
+									participantFormVO.setZipCode("");
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+								{
+									Double d = new Double(cell.getNumericCellValue());
+									long i = d.longValue();
+									String zipCode = Long.toString(i);
+									participantFormVO.setZipCode(zipCode);
+								}
+
+								//27/11/2015
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+									participantFormVO.setZipCode(cell.getStringCellValue());
+								}
+
+								cell = row.getCell((short) colNum++);
+								if (cell == null)
+								{
+									participantFormVO.setCountryMasterID(" ");
+									participantFormVO.setCountryMasterIDLong(0);
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+									//30/11/205
+									String countryName = cell.getStringCellValue();
+									participantFormVO.setCountryMasterIDString(countryName);
+									countryName = trimLower(countryName);
+									participantFormVO.setCountryMasterIDLong(getCountryId(countryName, executeSqlInLoopCountry));
+									participantFormVO.setCountryMasterID(participantFormVO.getCountryMasterIDLong() + "");
+									participantFormVO.setStateMasterIDLong(getStateId(stateName, participantFormVO.getCountryMasterIDLong(), executeSqlInLoopState));
+									participantFormVO.setStateMasterID(participantFormVO.getStateMasterIDLong() + "");
+
+								}
+
+								cell = row.getCell((short) colNum++);
+								if (cell == null)
+								{
+									participantFormVO.setPhoneCityCode("");
+
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+								{
+
+									Double d = new Double(cell.getNumericCellValue());
+									long i = d.longValue();
+									String phoneCityCode = Long.toString(i);
+									participantFormVO.setPhoneCityCode(phoneCityCode);
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+
+									participantFormVO.setPhoneCityCode(cell.getStringCellValue());
+								}
+
+								cell = row.getCell((short) colNum++);
+								if (cell == null)
+								{
+									participantFormVO.setPhone("");
+
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+								{
+
+									Double d = new Double(cell.getNumericCellValue());
+									long i = d.longValue();
+									String phone = Long.toString(i);
+									participantFormVO.setPhone(phone);
+								}
+
+								//27/11/2015
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+
+									participantFormVO.setPhone(cell.getStringCellValue());
+								}
+
+								cell = row.getCell((short) colNum++);
+								if (cell == null)
+								{
+									participantFormVO.setPhoneExtension("");
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+								{
+
+									Double d = new Double(cell.getNumericCellValue());
+									long i = d.longValue();
+									String phoneExtension = Long.toString(i);
+									participantFormVO.setPhoneExtension(phoneExtension);
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+
+									participantFormVO.setPhoneExtension(cell.getStringCellValue());
+
+								}
+
+								cell = row.getCell((short) colNum++);
+								if (cell == null)
+								{
+									participantFormVO.setMobile("");
+								}
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+								{
+
+									Double d = new Double(cell.getNumericCellValue());
+									long i = d.longValue();
+									String mobile = Long.toString(i);
+									participantFormVO.setMobile(mobile);
+								}
+
+								//27/11/2015
+								else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+								{
+									participantFormVO.setMobile(cell.getStringCellValue());
+								}
+
+								for (int i = 0; i < aditionalFieldList.size(); i++)
+								{
+									System.out.println("aditionalFieldList.get(i).getGlobalParticipantFieldID()" + aditionalFieldList.get(i).getGlobalParticipantFieldID());
+
+									if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 1)
+									{
+										cell = row.getCell((short) colNum++);
+
+										if (cell == null)
+										{
+											participantFormVO.Listadditional_1.add("");
+
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "");
+
+										}
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+										{
+
+											participantFormVO.Listadditional_1.add(String.valueOf(cell.getNumericCellValue()));
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), String.valueOf(cell.getNumericCellValue()));
+										}
+
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+										{
+											participantFormVO.Listadditional_1.add(cell.getStringCellValue());
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), cell.getStringCellValue());
+
+										}
+									}
+									if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 2)
+									{
+										cell = row.getCell((short) colNum++);
+
+										if (cell == null)
+										{
+
+											participantFormVO.Listadditional_2.add("");
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "");
+										}
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+										{
+											participantFormVO.Listadditional_2.add(String.valueOf(cell.getNumericCellValue()));
+
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), String.valueOf(cell.getNumericCellValue()));
+										}
+
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+										{
+											participantFormVO.Listadditional_2.add(cell.getStringCellValue());
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), cell.getStringCellValue());
+										}
+
+									}
+									if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 3)
+									{
+										cell = row.getCell((short) colNum++);
+
+										if (cell == null)
+										{
+											participantFormVO.Listadditional_3.add(0.0);
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "0.0");
+
+										}
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+										{
+											participantFormVO.Listadditional_3.add(cell.getNumericCellValue());
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "" + cell.getNumericCellValue());
+										}
+
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+										{
+											participantFormVO.Listadditional_3.add(1.0);
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), cell.getStringCellValue());
+										}
+
+									}
+									if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 4)
+									{
+										cell = row.getCell((short) colNum++);
+
+										if (cell == null)
+										{
+											participantFormVO.Listadditional_4.add(0.0);
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "0.0");
+										}
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+										{
+											participantFormVO.Listadditional_4.add(cell.getNumericCellValue());
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "" + cell.getNumericCellValue());
+										}
+
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+										{
+
+											participantFormVO.Listadditional_4.add(1.0);
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), cell.getStringCellValue());
+										}
+
+									}
+									if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 5)
+									{
+										cell = row.getCell((short) colNum++);
+										try
+										{
+
+											if (cell == null || cell.getCellType() == Cell.CELL_TYPE_BLANK)
+											{
+												participantFormVO.Listadditional_5.add("");
+												participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "");
+											}
+											else if (cell != null && HSSFDateUtil.isCellDateFormatted(cell) && cell.getCellType() == Cell.CELL_TYPE_STRING)
+											{
+
+												participantFormVO.Listadditional_5.add(cell.getDateCellValue().toString());
+												participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "" + cell.getDateCellValue().toString());
+
+											}
+
+											else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+											{
+
+												participantFormVO.Listadditional_5.add(cell.getDateCellValue().toString());
+												participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "" + cell.getDateCellValue().toString());
+											}
+											else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+											{
+												SimpleDateFormat formatter = new SimpleDateFormat("MMMM dd, yyyy");
+												String strDate = formatter.format(cell.getNumericCellValue());
+												participantFormVO.Listadditional_5.add(strDate);
+												participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), strDate);
+
+											}
+										}
+										catch (IllegalStateException e)
+										{
+
+											e.printStackTrace();
+											participantFormVO.Listadditional_5.add("0");
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "");
+											participantFormVO.isValid = false;
+
+										}
+
+									}
+									if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 6)
+									{
+										cell = row.getCell((short) colNum++);
+
+										if (cell == null)
+										{
+
+											participantFormVO.Listadditional_6.add("");
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "");
+										}
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+										{
+
+											participantFormVO.Listadditional_6.add(String.valueOf(cell.getNumericCellValue()));
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "" + cell.getNumericCellValue());
+										}
+
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+										{
+											participantFormVO.Listadditional_6.add(cell.getStringCellValue());
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "" + cell.getStringCellValue());
+										}
+
+									}
+									if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 8)
+									{
+										cell = row.getCell((short) colNum++);
+
+										if (cell == null)
+										{
+											participantFormVO.Listadditional_8.add("");
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "");
+										}
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+										{
+
+											participantFormVO.Listadditional_8.add(String.valueOf(cell.getNumericCellValue()));
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "" + cell.getNumericCellValue());
+										}
+
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+										{
+											participantFormVO.Listadditional_8.add(cell.getStringCellValue());
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), cell.getStringCellValue());
+										}
+									}
+									if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 9)
+									{
+										cell = row.getCell((short) colNum++);
+
+										if (cell == null)
+										{
+											participantFormVO.Listadditional_9.add("");
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "");
+										}
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+										{
+
+											participantFormVO.Listadditional_9.add(String.valueOf(cell.getNumericCellValue()));
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "" + cell.getNumericCellValue());
+										}
+
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+										{
+											participantFormVO.Listadditional_9.add(cell.getStringCellValue());
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "" + cell.getStringCellValue());
+										}
+
+									}
+									if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 10)
+									{
+										cell = row.getCell((short) colNum++);
+
+										if (cell == null)
+										{
+
+											participantFormVO.Listadditional_10.add((long) 1);
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "0");
+
+										}
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+										{
+
+											participantFormVO.Listadditional_10.add((long) 0);
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "" + cell.getNumericCellValue());
+										}
+
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+										{
+
+											String countryName = cell.getStringCellValue();
+											countryName = trimLower(countryName);
+											countryId = getCountryId(countryName, executeSqlInLoopCountry);
+											if (countryId == 0)
+											{
+												participantFormVO.Listadditional_10.add((long) 2);
+												participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), countryName);
+											}
+											else
+											{
+
+												participantFormVO.Listadditional_10.add((long) 0);
+												participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), countryName);
+											}
+										}
+
+									}
+									if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 11)
+									{
+										cell = row.getCell((short) colNum++);
+
+										if (cell == null)
+										{
+
+											participantFormVO.Listadditional_11.add((long) 1);
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "0");
+										}
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+										{
+											participantFormVO.Listadditional_11.add((long) 0);
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "0");
+
+										}
+
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+										{
+
+											String state_Name = cell.getStringCellValue();
+											state_Name = trimLower(state_Name);
+
+											long state_Id = getStateId(state_Name, countryId, executeSqlInLoopState);
+											if (state_Id == 0)
+											{
+												participantFormVO.Listadditional_11.add((long) 2);
+												participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), state_Name);
+											}
+											else
+											{
+
+												participantFormVO.Listadditional_11.add((long) 0);
+												participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), state_Name);
+											}
+										}
+
+									}
+									if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 12)
+									{
+										cell = row.getCell((short) colNum++);
+
+										if (cell == null)
+										{
+
+											participantFormVO.Listadditional_12.add("");
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "");
+
+										}
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+										{
+											participantFormVO.Listadditional_12.add("");
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), "");
+
+										}
+
+										else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+										{
+											participantFormVO.Listadditional_12.add(cell.getStringCellValue());
+
+											participantFormVO.alladditional.put((long) aditionalFieldList.get(i).getGlobalParticipantFieldID(), cell.getStringCellValue());
+										}
+
+									}
+								}
+								// inserting row num for write invalid participant in excel on particular row
+								participantFormVO.setRowNum(rowNum);
+								participantFormVOList.add(participantFormVO);
+
+							}
+							rowNum++;
+						}
+					}
+					catch (Exception e)
+					{
+						e.printStackTrace();
+						/*
+						LogWriter.logError("readFileToCreateTemplateObject() :: " + e);
+						e.printStackTrace();
+						throw new BLLException(e);
+						*/
+
+					}
+					finally
+					{
+						if (executeSqlInLoopCountry != null)
+						{
+							try
+							{
+								executeSqlInLoopCountry.close();
+							}
+							catch (Exception e)
+							{
+								e.printStackTrace();
+							}
+							executeSqlInLoopCountry = null;
+						}
+						//to be closed
+						if (executeSqlInLoopState != null)
+						{
+							try
+							{
+								executeSqlInLoopState.close();
+							}
+							catch (Exception e)
+							{
+								e.printStackTrace();
+							}
+							executeSqlInLoopState = null;
+						}
+
+					}
+					// passing aditionalFieldList  for validating aditionalField2 is sorted by GlobalFieldInputMasterID for validation
+
+					ParticipantFormVO.setAditionalFieldList(aditionalFieldList2);
+
+					// validating beans 
+					for (int i = 0; i < participantFormVOList.size(); i++)
+					{
+
+						participantFormVO = participantFormVOList.get(i);
+						participantFormVO.validateWithAdditionalField();
+						participantFormVO.setMessage(participantFormVO.getMessage());
+
+					}
+
+					int count = 0;
+					for (int i = 0; i < participantFormVOList.size(); i++)
+					{
+
+						participantFormVO = participantFormVOList.get(i);
+						if (participantFormVO.isValid())
+						{
+							cover = participantBulkInsertAction.insertParticipantForAddtionalField(formator, participantFormVO, request, participantService, adminLogCAB, paraActionBase, uRL1, remoteIP);
+							rowList.add(participantFormVO.getRowNum());
+							if (cover.participantIDList != null)
+							{
+								participantlist.add(cover.participantIDList.get(0));
+							}
+							// getting created participantId 
+							if ((participantFormVOList.size() - 1) == count)
+								cover.participantIDList = participantlist;
+						}
+						count++;
+					}
+
+					readCustomFieldFromFile(filePath, request, paraActionBase.companyInfo, workbook1, cover, rowList, newfileName);
+
+					firstInvalidNumberSecondFile = prepareNotInsertedParticipantwithAdditionalfield(participantFormVOList, paraActionBase.companyInfo, filePath, aditionalFieldList);
+				}
+
+			}
+			else
+			{
+				firstInvalidNumberSecondFile = InvalidSheetFormate();
+			}
+
+		}
+		catch (Exception exception)
+		{
+			LogWriter.logError("readFileToCreateTemplateObject() :: " + exception);
+			exception.printStackTrace();
+			throw new BLLException(exception);
+		}
+		finally
+		{
+
+		}
+
+		return firstInvalidNumberSecondFile;
+
+	}
+	public void readCustomFieldFromFile(String filePath, HttpServletRequest request, CompanyInfo companyInfo, Workbook workbook, ParticipantCover cover, ArrayList<Integer> rowList, String newfileName) throws BLLException, ServiceLocatorException, FileNotFoundException, IOException
+	{
+		// hiren 
+		// checking  all participants  are invalid  
+		if ((cover.participantIDList != null) && (cover.participantIDList.size() > 0))
+		{
+			Cell cell = null;
+			Sheet sheet = null;
+			Row row = null;
+
+			ParticipantAdditionalFieldCover additionalFieldCover = new ParticipantAdditionalFieldCover();
+			ArrayList<ParticipantAdditionalFieldCover> additionalFieldCoverList = new ArrayList<ParticipantAdditionalFieldCover>();
+			ParticipantService participantService = new ParticipantService(request);
+			ParticipantCover participantCover = cover;
+			ArrayList<ParticipantInfoEntry> aditionalFieldList = new ArrayList<ParticipantInfoEntry>();
+			ArrayList<ParticipantInfoEntry> aditionalFieldList2 = new ArrayList<ParticipantInfoEntry>();
+			ArrayList<ParticipantAdditionalFieldOptions> aditionalFieldOptionList = new ArrayList<ParticipantAdditionalFieldOptions>();
+			ParticipantAdditionalFieldCover participantAdditionalFieldCover = participantService.getParticipantAdditionalFieldWhenCreateForBulkinsert(companyInfo.getCompanyID());
+			aditionalFieldList = participantAdditionalFieldCover.getAditionalFieldList();
+
+			aditionalFieldOptionList = participantAdditionalFieldCover.getParticipantAdditionalFieldOptions();
+			String aditionalFieldName = "";
+			ArrayList<String> RadioChoice = new ArrayList<String>();
+			ArrayList<String> MultipleChoice = new ArrayList<String>();
+			ArrayList<String> List = new ArrayList<String>();
+			String XMLData = "";
+			long countryId;
+
+			// list of rownumber of valid participant 
+			ArrayList<Integer> RowList = rowList;
+
+			for (int k = 0; k < cover.participantIDList.size(); k++)
+			{
+				participantService.insertParticipantAdditionalField(cover.participantIDList.get(k), companyInfo.getCompanyID());
+				additionalFieldCover = participantService.getParticipantAdditionalField(cover.participantIDList.get(k));
+				additionalFieldCoverList.add(additionalFieldCover);
+				aditionalFieldList2 = additionalFieldCoverList.get(k).getAditionalFieldList();
+
+			}
+
+			try
+			{
+				ExecuteSqlInLoop executeSqlInLoopCountry = null;
+				ExecuteSqlInLoop executeSqlInLoopState = null;
+
+				try
+				{
+					String fileExtension = newfileName.substring(newfileName.lastIndexOf('.') + 1);
+					if (fileExtension.equals("xls"))
+					{
+						workbook1 = new HSSFWorkbook(new FileInputStream(filePath + newfileName));
+					}
+					if (fileExtension.equals("xlsx"))
+					{
+						workbook1 = new XSSFWorkbook(new FileInputStream(filePath + newfileName));
+					}
+
+					//workbook = new Workbook(new FileInputStream(filePath + newfileName));
+					sheet = workbook1.getSheet("Bulk Insert Participants");
+
+					executeSqlInLoopCountry = new ExecuteSqlInLoop();
+					executeSqlInLoopCountry.openSql("select countryCode from CountryMaster where lower(countryName)=?");
+
+					executeSqlInLoopState = new ExecuteSqlInLoop();
+					executeSqlInLoopState.openSql("select stateMasterID from StateMaster where lower(stateName)=? and countryMasterID=?");
+					int rowNum = 7;
+					int col = 22;
+					String stateName = "";
+
+					ArrayList<ParticipantInfoEntry> ParticipantFieldIDList = null;
+
+					String radioChoices[] = RadioChoice.toArray(new String[RadioChoice.size()]);
+					String multipleChoice[] = MultipleChoice.toArray(new String[MultipleChoice.size()]);
+					String list[] = List.toArray(new String[List.size()]);
+					int lastRowOfSheet = sheet.getLastRowNum();
+					int k = 0;
+					int l = 0;
+					while (k < additionalFieldCoverList.size())
+					{
+
+						while (l < RowList.size())
+						{
+							rowNum = RowList.get(l);
+
+							ParticipantFieldIDList = additionalFieldCoverList.get(k).getAditionalFieldList();
+
+							XMLData += "<ParticipantAditionalFields>";
+							row = sheet.getRow(rowNum);
+							for (int i = 0; i < aditionalFieldList.size(); i++)
+							{
+								if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 1)
+								{
+									cell = row.getCell((short) col++);
+									if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+
+										XMLData += "<Field";
+										XMLData += " participantFieldID='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+										XMLData += "' answerText='" + cell.getStringCellValue();
+										XMLData += "' />";
+
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+									{
+
+										XMLData += "<Field";
+										XMLData += " participantFieldID='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+										XMLData += "' answerText='" + cell.getNumericCellValue();
+										XMLData += "' />";
+
+									}
+
+								}
+								if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 2)
+								{
+									cell = row.getCell((short) col++);
+									if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+
+										XMLData += "<Field";
+										XMLData += " participantFieldID='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+										XMLData += "' answerText='" + cell.getStringCellValue();
+										XMLData += "' />";
+
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+									{
+										XMLData += "<Field";
+										XMLData += " participantFieldID='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+										XMLData += "' answerText='" + cell.getNumericCellValue();
+										XMLData += "' />";
+
+									}
+
+								}
+								if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 3)
+								{
+									cell = row.getCell((short) col++);
+									if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										XMLData += "<Field";
+										XMLData += " participantFieldID='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+										XMLData += "' answerDouble='" + cell.getStringCellValue();
+										XMLData += "' />";
+
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+									{
+										XMLData += "<Field";
+										XMLData += " participantFieldID='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+										XMLData += "' answerDouble='" + cell.getNumericCellValue();
+										XMLData += "' />";
+
+									}
+
+								}
+								if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 4)
+								{
+									cell = row.getCell((short) col++);
+									if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+
+										XMLData += "<Field";
+										XMLData += " participantFieldID='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+										XMLData += "' answerDouble='" + cell.getStringCellValue();
+										XMLData += "' />";
+
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+									{
+										XMLData += "<Field";
+										XMLData += " participantFieldID='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+										XMLData += "' answerDouble='" + cell.getNumericCellValue();
+										XMLData += "' />";
+
+									}
+
+								}
+								if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 5)
+								{
+									cell = row.getCell((short) col++);
+									if (cell != null && HSSFDateUtil.isCellDateFormatted(cell))
+									{
+
+										Date date = new Date();
+										SimpleDateFormat formatter = new SimpleDateFormat("MMMM dd, yyyy");
+										String strDate = formatter.format(cell.getDateCellValue());
+
+										XMLData += "<Field";
+										XMLData += " participantFieldID='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+										XMLData += "' answerDate='" + strDate;
+										XMLData += "' />";
+
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+									{
+										XMLData += "<Field";
+										XMLData += " participantFieldID='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+										XMLData += "' answerDate='" + cell.getNumericCellValue();
+										XMLData += "' />";
+
+									}
+
+								}
+								if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 6)
+								{
+									cell = row.getCell((short) col++);
+									if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+
+										XMLData += "<Field";
+										XMLData += " participantFieldID='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+
+										if (cell.getStringCellValue().trim().equals("Yes"))
+										{
+
+											XMLData += "' answerDouble='" + 1;
+										}
+										else
+										{
+
+											XMLData += "' answerDouble='" + 0;
+										}
+
+										XMLData += "' />";
+
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+									{
+										XMLData += "<Field";
+										XMLData += " participantFieldID='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+										XMLData += "' answerDouble='" + cell.getNumericCellValue();
+										XMLData += "' />";
+
+									}
+
+								}
+
+								if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 8)
+								{
+									cell = row.getCell((short) col++);
+									if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										for (int j = 0; j < aditionalFieldOptionList.size(); j++)
+										{
+
+											if (aditionalFieldOptionList.get(j).getGlobalParticipantFieldID() == aditionalFieldList.get(i).getGlobalParticipantFieldID())
+											{
+
+												if (cell.getStringCellValue().trim().equals(aditionalFieldOptionList.get(j).getOptionName()))
+												{
+
+													XMLData += "<Field";
+													XMLData += " participantFieldID='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+													XMLData += "' answerDouble='" + aditionalFieldOptionList.get(j).getGlobalParticipantFieldOptionID();
+													XMLData += "' />";
+
+												}
+											}
+										}
+
+									}
+
+								}
+								if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 9)
+								{
+									cell = row.getCell((short) col++);
+									if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										for (int j = 0; j < aditionalFieldOptionList.size(); j++)
+										{
+
+											if (aditionalFieldOptionList.get(j).getGlobalParticipantFieldID() == aditionalFieldList.get(i).getGlobalParticipantFieldID())
+											{
+
+												if (cell.getStringCellValue().trim().equals(aditionalFieldOptionList.get(j).getOptionName()))
+												{
+
+													XMLData += "<Field";
+													XMLData += " participantFieldID='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+													XMLData += "' />";
+													XMLData += "<Answer";
+													XMLData += " participantFieldOptionID='" + aditionalFieldOptionList.get(j).getGlobalParticipantFieldOptionID();
+													XMLData += "' participantFieldID ='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+													XMLData += "' />";
+
+												}
+											}
+										}
+
+									}
+
+								}
+								if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 10)
+								{
+									cell = row.getCell((short) col++);
+									if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+
+										String countryName = cell.getStringCellValue();
+										countryName = trimLower(countryName);
+										countryId = getCountryId(countryName, executeSqlInLoopCountry);
+
+										XMLData += "<Field";
+										XMLData += " participantFieldID='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+										XMLData += "' answerDouble='" + countryId;
+										XMLData += "' />";
+
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+									{
+
+										System.out.println("country ===>>iiiii  * =" + cell.getNumericCellValue());
+
+									}
+
+								}
+
+								if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 11)
+								{
+									String countryName = cell.getStringCellValue();
+									countryName = trimLower(countryName);
+									long countryId_for_State = getCountryId(countryName, executeSqlInLoopCountry);
+									long state_Id;
+									cell = row.getCell((short) col++);
+									if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+
+										String state_Name = cell.getStringCellValue();
+										state_Name = trimLower(state_Name);
+
+										if (countryId_for_State == 0)
+										{
+											state_Id = 0;
+										}
+										else
+										{
+											state_Id = getStateId(state_Name, countryId_for_State, executeSqlInLoopState);
+										}
+
+										XMLData += "<Field";
+										XMLData += " participantFieldID='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+										XMLData += "' answerDouble='" + state_Id;
+										XMLData += "' />";
+
+									}
+									else if (cell != null && cell.getCellType() == Cell.CELL_TYPE_NUMERIC)
+									{
+
+										System.out.println("State ===>>iiiii  * =" + cell.getNumericCellValue());
+
+									}
+
+								}
+								if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() == 12)
+								{
+									cell = row.getCell((short) col++);
+									if (cell != null && cell.getCellType() == Cell.CELL_TYPE_STRING)
+									{
+										for (int j = 0; j < aditionalFieldOptionList.size(); j++)
+										{
+
+											if (aditionalFieldOptionList.get(j).getGlobalParticipantFieldID() == aditionalFieldList.get(i).getGlobalParticipantFieldID())
+											{
+
+												if (cell.getStringCellValue().trim().equals(aditionalFieldOptionList.get(j).getOptionName()))
+												{
+
+													XMLData += "<Field";
+													XMLData += " participantFieldID='" + ParticipantFieldIDList.get(i).getParticipantFieldID();
+
+													XMLData += "' answerDouble='" + aditionalFieldOptionList.get(j).getGlobalParticipantFieldOptionID();
+
+													XMLData += "' />";
+
+												}
+											}
+										}
+
+									}
+
+								}
+							}
+							col = 22;
+							l++;
+							XMLData += "</ParticipantAditionalFields>";
+							System.out.println("Xml==..........==" + XMLData);
+							participantService.participantAdditionalFieldBulkInsert(XMLData, ParticipantFieldIDList.get(k).getParticipantID());
+							k++;
+							XMLData = "";
+						}
+					}
+
+					System.out.println("Xml====" + XMLData);
+				}
+				catch (Exception e)
+				{
+					e.printStackTrace();
+				}
+				finally
+				{
+					if (executeSqlInLoopCountry != null)
+					{
+						try
+						{
+							executeSqlInLoopCountry.close();
+						}
+						catch (Exception e)
+						{
+							e.printStackTrace();
+						}
+						executeSqlInLoopCountry = null;
+					}
+					//to be closed
+					if (executeSqlInLoopState != null)
+					{
+						try
+						{
+							executeSqlInLoopState.close();
+						}
+						catch (Exception e)
+						{
+							e.printStackTrace();
+						}
+						executeSqlInLoopState = null;
+					}
+
+				}
+
+			}
+
+			catch (Exception e)
+			{
+				e.printStackTrace();
+			}
+			finally
+			{
+
+			}
+		}
+
+	}
+	public boolean CompareExcelWithAdditinalfileds(Workbook workbook, HttpServletRequest request, ArrayList<ParticipantInfoEntry> aditionalFieldList) throws Exception
+	{ // hiren 
+		ParaActionBase paraActionBase = new ParaActionBase();
+		paraActionBase.session = request.getSession();
+		paraActionBase.companyInfo = (CompanyInfo) paraActionBase.session.getAttribute("companyInfo");
+		String aditionalFieldName;
+
+		boolean status = true;
+		Cell cell = null;
+		Sheet sheet = workbook.getSheet("Bulk Insert Participants");
+		String getSheetNameFromUserUploaded = workbook.getSheetName(0);
+
+		if (getSheetNameFromUserUploaded.equals("Bulk Insert Participants"))
+		{
+			if (sheet != null)
+			{
+				try
+				{
+					Row row = sheet.getRow(6);
+					if (row != null)
+					{
+						int colNum = 0;
+						int count = 0;
+
+						cell = row.getCell((short) colNum);
+						String userId = cell.getStringCellValue().trim();
+						if (!userId.equalsIgnoreCase("User ID *"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String supplierId = cell.getStringCellValue().trim();
+						if (!supplierId.equalsIgnoreCase("Supplier ID"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String companyName = cell.getStringCellValue().trim();
+						if (!companyName.equalsIgnoreCase("Company Name *"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String companyWebsite = cell.getStringCellValue().trim();
+						if (!companyWebsite.equalsIgnoreCase("Company Website"))
+						{
+							count++;
+						}
+
+						/*	111 HIC Exchange work Start*/
+						if (paraActionBase.companyInfo.getCompanyID() != SysSetting.HIC_Exchange_CompanyID)
+						{
+							cell = row.getCell((short) ++colNum);
+							String yearOfCorporation = cell.getStringCellValue().trim();
+							if (!yearOfCorporation.equalsIgnoreCase("Year Of Incorporation"))
+							{
+								count++;
+							}
+						}
+						/*	111 HIC Exchange work End*/
+
+						cell = row.getCell((short) ++colNum);
+						String registration = cell.getStringCellValue().trim();
+						if (!registration.equalsIgnoreCase("Registration As"))
+						{
+							count++;
+						}
+
+						/*	111 HIC Exchange work Start*/
+						if (paraActionBase.companyInfo.getCompanyID() != SysSetting.HIC_Exchange_CompanyID)
+						{
+							cell = row.getCell((short) ++colNum);
+							String other = cell.getStringCellValue().trim();
+							if (!other.equalsIgnoreCase("Other"))
+							{
+								count++;
+							}
+						}
+						/*	111 HIC Exchange work End*/
+
+						cell = row.getCell((short) ++colNum);
+						String firstName = cell.getStringCellValue().trim();
+						if (!firstName.equalsIgnoreCase("First Name *"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String lastName = cell.getStringCellValue().trim();
+						if (!lastName.equalsIgnoreCase("Last Name *"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String email = cell.getStringCellValue().trim();
+						if (!email.equalsIgnoreCase("Email *"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String designation = cell.getStringCellValue().trim();
+						if (!designation.equalsIgnoreCase("Designation/ Title"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String devision = cell.getStringCellValue().trim();
+						if (!devision.equalsIgnoreCase("Devision / Department"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String address1 = cell.getStringCellValue().trim();
+						if (!address1.equalsIgnoreCase("Address1"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String address2 = cell.getStringCellValue().trim();
+						if (!address2.equalsIgnoreCase("Address2"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String city = cell.getStringCellValue().trim();
+						if (!city.equalsIgnoreCase("City"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String state = cell.getStringCellValue().trim();
+						if (!state.equalsIgnoreCase("State/Province/ Region *"))
+						{
+							count++;
+						}
+
+						cell = row.getCell((short) ++colNum);
+						String zipcode = cell.getStringCellValue().trim();
+						if (!zipcode.equalsIgnoreCase("Postal Code/ Zip Code"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String country = cell.getStringCellValue().trim();
+						if (!country.equalsIgnoreCase("Country *"))
+						{
+							count++;
+						}
+
+						cell = row.getCell((short) ++colNum);
+						String phoneCityCode = cell.getStringCellValue().trim();
+						if (!phoneCityCode.equalsIgnoreCase("Phone City Code"))
+						{
+							count++;
+						}
+
+						cell = row.getCell((short) ++colNum);
+						String phone = cell.getStringCellValue().trim();
+						if (!phone.equalsIgnoreCase("Phone"))
+						{
+							count++;
+						}
+
+						cell = row.getCell((short) ++colNum);
+						String phoneExt = cell.getStringCellValue().trim();
+						if (!phoneExt.equalsIgnoreCase("Phone Ext."))
+						{
+							count++;
+						}
+
+						cell = row.getCell((short) ++colNum);
+						String mobile = cell.getStringCellValue().trim();
+						if (!mobile.equalsIgnoreCase("Mobile"))
+						{
+							count++;
+						}
+
+						for (int i = 0; i < aditionalFieldList.size(); i++)
+						{
+
+							if (aditionalFieldList.get(i).getGlobalFieldInputMasterID() != 7)
+							{
+								aditionalFieldName = aditionalFieldList.get(i).getFieldName();
+								cell = row.getCell((short) ++colNum);
+								String colname = cell.getStringCellValue().trim();
+
+								if (aditionalFieldList.get(i).getRequired() == 1)
+								{
+
+									aditionalFieldName = aditionalFieldName + " *";
+								}
+								else
+								{
+
+									aditionalFieldName = aditionalFieldName;
+								}
+
+								if (!(colname.equals(aditionalFieldName)))
+								{
+
+									count++;
+
+								}
+							}
+
+						}
+
+						cell = row.getCell((short) ++colNum);
+						if (cell != null)
+						{
+							String remark = cell.getStringCellValue().trim();
+							if (!remark.equalsIgnoreCase("Remark"))
+							{
+								count++;
+							}
+						}
+						if (count > 0)
+						{
+							status = false;
+						}
+						else
+						{
+							status = true;
+						}
+					}
+				}
+
+				catch (Exception e)
+				{
+					// TODO: handle exception
+					e.printStackTrace();
+				}
+				finally
+				{}
+			}
+		}
+		else
+		{
+			status = false;
+		}
+		return status;
+	}
+	public String[] prepareNotInsertedParticipantwithAdditionalfield(ArrayList<ParticipantFormVO> participantFormVOList, CompanyInfo companyInfo, String filepath, ArrayList<ParticipantInfoEntry> aditionalFieldList)
+	{
+		String firstInvalidNumberSecondFile[] = new String[2];
+		int insetedCount = 0;
+		int notInsertedCount = 0;
+		ArrayList<ParticipantFormVO> participantFormVO_List = participantFormVOList;
+		ParticipantCopyExcel participantCopyExcel = new ParticipantCopyExcel();
+		File afile1 = participantCopyExcel.copyInvalidParticipantExcelwithAdditionalfield(companyInfo, filepath);
+
+		String invalidEntryLink = companyInfo.getAppURL() + SysSetting.CONTEXT + "/TEMP_LOCAL_PATH/" + afile1.getName();
+		System.out.println("invalidEntryLink : " + invalidEntryLink);
+		try
+		{
+			Workbook workbook = null;
+			Sheet sheet = null;
+			Cell cell = null;
+
+			//create excel sheet
+			//workbook = new HSSFWorkbook(new FileInputStream(afile1));
+			workbook = WorkbookFactory.create(new FileInputStream(afile1));
+			sheet = workbook.getSheet("Bulk Insert Participants");
+
+			valueFontBold1 = workbook.createFont();
+			valueFontBold1.setFontName("Arial");
+			valueFontBold1.setFontHeightInPoints((short) 12);
+			valueFontBold1.setBoldweight(Font.BOLDWEIGHT_BOLD);
+			valueFontBold1.setColor(IndexedColors.WHITE.getIndex());
+
+			this.ItemHeaderCellStyleRightBorderMedium1 = workbook.createCellStyle();
+			this.ItemHeaderCellStyleRightBorderMedium1.setFont(valueFontBold1);
+			this.ItemHeaderCellStyleRightBorderMedium1.setAlignment(CellStyle.ALIGN_CENTER);
+			this.ItemHeaderCellStyleRightBorderMedium1.setBorderBottom(CellStyle.BORDER_THIN);
+			this.ItemHeaderCellStyleRightBorderMedium1.setBorderLeft(CellStyle.BORDER_THIN);
+			this.ItemHeaderCellStyleRightBorderMedium1.setBorderRight(CellStyle.BORDER_MEDIUM);
+			this.ItemHeaderCellStyleRightBorderMedium1.setBorderTop(CellStyle.BORDER_THIN);
+			this.ItemHeaderCellStyleRightBorderMedium1.setFillForegroundColor(IndexedColors.RED.getIndex());
+			this.ItemHeaderCellStyleRightBorderMedium1.setFillPattern(CellStyle.SOLID_FOREGROUND);
+			this.ItemHeaderCellStyleRightBorderMedium1.setWrapText(true);
+
+			valueFontBoldBlack1 = workbook.createFont();
+			valueFontBoldBlack1.setFontName("Arial");
+			valueFontBoldBlack1.setFontHeightInPoints((short) 8);
+			valueFontBoldBlack1.setBoldweight(HSSFFont.BOLDWEIGHT_BOLD);
+			valueFontBoldBlack1.setColor(IndexedColors.BLACK.getIndex());
+
+			this.ItemHeaderCellStyleRightBorderMediumWithGreyColour1 = workbook.createCellStyle();
+			this.ItemHeaderCellStyleRightBorderMediumWithGreyColour1.setFont(valueFontBoldBlack1);
+			this.ItemHeaderCellStyleRightBorderMediumWithGreyColour1.setAlignment(HorizontalAlignment.CENTER);
+			this.ItemHeaderCellStyleRightBorderMediumWithGreyColour1.setVerticalAlignment(VerticalAlignment.CENTER);
+			this.ItemHeaderCellStyleRightBorderMediumWithGreyColour1.setBorderBottom(CellStyle.BORDER_THIN);
+			this.ItemHeaderCellStyleRightBorderMediumWithGreyColour1.setBorderLeft(CellStyle.BORDER_THIN);
+			this.ItemHeaderCellStyleRightBorderMediumWithGreyColour1.setBorderRight(CellStyle.BORDER_MEDIUM);
+			this.ItemHeaderCellStyleRightBorderMediumWithGreyColour1.setBorderTop(CellStyle.BORDER_THIN);
+			this.ItemHeaderCellStyleRightBorderMediumWithGreyColour1.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+			this.ItemHeaderCellStyleRightBorderMediumWithGreyColour1.setFillPattern(CellStyle.SOLID_FOREGROUND);
+			this.ItemHeaderCellStyleRightBorderMediumWithGreyColour1.setWrapText(true);
+
+			Row row = sheet.getRow(6);
+
+			int lastCellNum = row.getLastCellNum();
+			cell = row.createCell(lastCellNum);
+
+			cell.setCellStyle(this.ItemHeaderCellStyleRightBorderMediumWithGreyColour1);
+			sheet.setColumnWidth(lastCellNum, 10000);
+			cell.setCellValue("Remark");
+
+			row = sheet.createRow(1);
+
+			cell = row.createCell((short) 0);
+			row.setHeight((short) 500);
+			if (cell != null)
+			{
+				cell.setCellStyle(this.ItemHeaderCellStyleRightBorderMedium1);
+				cell.setCellValue("InvalidParticipants");
+			}
+
+			ParticipantFormVO participantFormVO;
+			int rowNum = 8;
+			for (int i = 0; i < participantFormVO_List.size(); i++)
+			{
+				participantFormVO = participantFormVO_List.get(i);
+				if (!participantFormVO.isInserted())
+				{
+					notInsertedCount++;
+
+					if (sheet != null)
+					{
+						try
+						{
+							rowNum = participantFormVO.getRowNum();
+
+							row = sheet.createRow(rowNum);
+							row.setHeight((short) 800);
+							int colNum = 0;
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getLoginID());
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getReferenceno());
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getCompanyName());
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getcompanyURL());
+
+							if (companyInfo.getCompanyID() != SysSetting.HIC_Exchange_CompanyID)
+							{
+								cell = row.createCell((short) colNum++);
+								cell.setCellValue(participantFormVO.getYearOfInCorporation());
+							}
+
+							if (companyInfo.getCompanyID() != SysSetting.HIC_Exchange_CompanyID)
+							{
+								cell = row.createCell((short) colNum++);
+
+								String businessTypeValue = participantFormVO.getBussinessType();
+								if (businessTypeValue.equals("1"))
+									cell.setCellValue("SupplierOf");
+								else if (businessTypeValue.equals("2"))
+									cell.setCellValue("Manufacturer");
+
+							}
+
+							if (companyInfo.getCompanyID() == SysSetting.HIC_Exchange_CompanyID)
+							{
+								cell = row.createCell((short) colNum++);
+
+								String businessTypeValue = participantFormVO.getBussinessType();
+								if (businessTypeValue.equals("1"))
+									cell.setCellValue("ServiceProvider");
+								else if (businessTypeValue.equals("2"))
+									cell.setCellValue("NaturalGas");
+								else if (businessTypeValue.equals("5"))
+									cell.setCellValue("Power");
+
+							}
+
+							if (companyInfo.getCompanyID() != SysSetting.HIC_Exchange_CompanyID)
+							{
+								cell = row.createCell((short) colNum++);
+								cell.setCellValue(participantFormVO.getUserTypeIfOther());
+							}
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getFirstName());
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getLastName());
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getEmail());
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getDesignation());
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getDevision());
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getAddress1());
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getAddress2());
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getCity());
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getStateMasterIDString());
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getZipCode());
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getCountryMasterIDString());
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getPhoneCityCode());
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getPhone());
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getPhoneExtension());
+
+							cell = row.createCell((short) colNum++);
+							cell.setCellValue(participantFormVO.getMobile());
+
+							Iterator<Map.Entry<Long, String>> itr = participantFormVO.alladditional.entrySet().iterator();
+
+							while (itr.hasNext())
+							{
+								Map.Entry<Long, String> entry = itr.next();
+								System.out.println("Key = " + entry.getKey() + ", Value = " + entry.getValue());
+							}
+
+							for (int j = 0; j < aditionalFieldList.size(); j++)
+							{
+
+								if (aditionalFieldList.get(j).getGlobalFieldInputMasterID() != 7)
+								{
+
+									cell = row.createCell((short) colNum++);
+
+									cell.setCellValue(participantFormVO.alladditional.get((long) aditionalFieldList.get(j).getGlobalParticipantFieldID()));
+								}
+
+							}
+
+							cell = row.createCell((short) colNum++);
+							sheet.setColumnWidth(colNum, 10000);
+							cell.setCellValue(participantFormVO.getMessage());
+
+							FileOutputStream fos = new FileOutputStream(afile1);
+							workbook.write(fos);
+
+							fos.close();
+						}
+						catch (Exception exception)
+						{
+							exception.printStackTrace();
+						}
+						finally
+						{}
+					}
+
+				}
+			}
+		}
+		catch (Exception exception)
+		{
+			exception.printStackTrace();
+		}
+
+		firstInvalidNumberSecondFile[0] = "" + notInsertedCount;
+		firstInvalidNumberSecondFile[1] = invalidEntryLink;
+		return firstInvalidNumberSecondFile;
+	}
+	//roshani,rutvi
+
+	public String[] readFileToCreateBulkInsertCatalog(FormatorNetx formator, HttpServletRequest request, String uRL1, String remoteIP, String customFilePath, String newFileName) throws BLLException
+	{
+		ExcelReader excelReader = null;
+		CompanyItemCatalogCAB companyItemCatalogCAB = null;
+		ItemCatalogService itemCatalogService = null;
+		AdminLogCAB adminLogCAB = new AdminLogCAB();
+		ParaActionBase paraActionBase = new ParaActionBase();
+		String firstInvalidNumberSecondFile[] = null;
+		ExecuteSqlInLoop executeSqlInLoopUnit = null;
+		ExcelReaderWriter excelReaderWriter = null;
+		ArrayList<CompanyItemCatalogCAB> companyItemCatalogCABArrayList = new ArrayList<>();
+		ItemCatalogListAction itemCatalogListAction = null;
+		try
+		{
+			paraActionBase.session = request.getSession();
+			itemCatalogService = new ItemCatalogService(request);
+			itemCatalogListAction = new ItemCatalogListAction();
+			executeSqlInLoopUnit = new ExecuteSqlInLoop();
+			paraActionBase.companyInfo = (CompanyInfo) paraActionBase.session.getAttribute("companyInfo");
+			excelReaderWriter = new ExcelReaderWriter(customFilePath + newFileName);
+			excelReader = new ExcelReader(customFilePath + newFileName);
+			excelReader.setSheet(0);
+			excelReader.setCellAddress("A6");
+			long companyId = paraActionBase.companyInfo.getCompanyID();
+			excelReader.newMaxBufferDataCell(6);
+
+			CellData[] cellDataArray = null;
+			boolean readRow = true;
+			int blankRowCounter = 0;
+			int counter = 0;
+			int rowNullCount = 0;
+			int rowCounter = 0;
+			executeSqlInLoopUnit.openSql("select companyMeasureUnitID from CompanyMeasureUnit where lower(unitName)=? and companyID=?");
+			String fileName = newFileName;
+			String fileExtension = fileName.substring(fileName.lastIndexOf('.') + 1);
+
+			if (fileExtension.equals("xls"))
+			{
+				workbook1 = new HSSFWorkbook(new FileInputStream(customFilePath + newFileName));
+			}
+			if (fileExtension.equals("xlsx"))
+			{
+				workbook1 = new XSSFWorkbook(new FileInputStream(customFilePath + newFileName));
+			}
+
+			if (CompareProductExcel(workbook1, request))
+			{
+				excelReaderWriter.setSheet("Bulk Insert Catalog");
+				int lastRowOfSheet = excelReaderWriter.getLastRowNum();
+				while (rowCounter < lastRowOfSheet)
+				{
+					companyItemCatalogCAB = new CompanyItemCatalogCAB();
+
+					excelReader.readRow(6);
+					cellDataArray = excelReader.getCellDataArray();
+
+					for (int i = 0; i < cellDataArray.length; i++)
+					{
+						CellType cellType = cellDataArray[i].cellType;
+						String cell = new String(cellType + "");
+						switch (cellDataArray[i].currentColumnIndex)
+						{
+							case 0:
+
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setSkuPartNumber(cellDataArray[i].stringData);
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									if ((cellDataArray[i].numeric) == 0.0)
+									{
+										companyItemCatalogCAB.setSkuPartNumber("");
+									}
+									else
+									{
+										companyItemCatalogCAB.setSkuPartNumber(cellDataArray[i].numeric + "");
+									}
+								}
+								break;
+							case 1:
+
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setMaterialNo(cellDataArray[i].stringData);
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									companyItemCatalogCAB.setMaterialNo(cellDataArray[i].numeric + "");
+								}
+								break;
+
+							case 2:
+
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setItemName(cellDataArray[i].stringData);
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									companyItemCatalogCAB.setItemName(cellDataArray[i].numeric + "");
+								}
+								break;
+							case 3:
+
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setLongDescription(cellDataArray[i].stringData);
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									companyItemCatalogCAB.setLongDescription(cellDataArray[i].numeric + "");
+								}
+								break;
+
+							case 4:
+
+								if (cell.contains("STRING"))
+								{
+									String unitName = cellDataArray[i].stringData;
+									unitName = trimLower(unitName);
+									companyItemCatalogCAB.setCompanyMeasureUnitID(getCompanyMeasureUnitID1(unitName, companyId, executeSqlInLoopUnit) + "");
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									companyItemCatalogCAB.setCompanyMeasureUnitID(cellDataArray[i].numeric + "");
+								}
+								break;
+							case 5:
+
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setItemBrand(cellDataArray[i].stringData);
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									companyItemCatalogCAB.setItemBrand(cellDataArray[i].numeric + "");
+								}
+								break;
+							default:
+								break;
+						}
+					}
+					if ((companyItemCatalogCAB.getSkuPartNumber() == null || companyItemCatalogCAB.getSkuPartNumber() == "") && (companyItemCatalogCAB.getMaterialNo() == null || companyItemCatalogCAB.getMaterialNo().contains("0.0")) && (companyItemCatalogCAB.getItemName() == null || companyItemCatalogCAB.getItemName().contains("0.0")) && (companyItemCatalogCAB.getLongDescription() == null || companyItemCatalogCAB.getLongDescription().contains("0.0")) && (companyItemCatalogCAB.getCompanyMeasureUnitID() == null || companyItemCatalogCAB.getCompanyMeasureUnitID().contains("0")) && (companyItemCatalogCAB.getItemBrand() == null || companyItemCatalogCAB.getItemBrand().contains("0.0")))
+					{
+						rowNullCount++;
+						if (rowNullCount > 10)
+						{
+							break;
+						}
+					}
+					else
+					{
+						rowNullCount = 0;
+						companyItemCatalogCABArrayList.add(companyItemCatalogCAB);
+					}
+					excelReader.move(1, -6);
+					rowCounter++;
+				}
+
+				ArrayList<CompanyItemCatalogCAB> err_companyItemCatalogCABArrayList = new ArrayList<CompanyItemCatalogCAB>();
+				ArrayList<String> errMsg_companyItemCatalogCABArrayList = new ArrayList<String>();
+				for (int i = 0; i < companyItemCatalogCABArrayList.size(); i++)
+				{
+					companyItemCatalogCAB = companyItemCatalogCABArrayList.get(i);
+					String message = validateForBulkInsert(companyItemCatalogCAB);
+					if (message == null)
+					{
+						companyItemCatalogCAB.setCompanyID((int) companyId);
+						boolean isDuplicated = itemCatalogListAction.insertProductCatalog(companyItemCatalogCAB, itemCatalogService);
+						if (!isDuplicated)
+						{
+							err_companyItemCatalogCABArrayList.add(companyItemCatalogCAB);
+							errMsg_companyItemCatalogCABArrayList.add("SKU / Part No Exist!");
+						}
+					}
+					else
+					{
+						err_companyItemCatalogCABArrayList.add(companyItemCatalogCAB);
+						errMsg_companyItemCatalogCABArrayList.add(message);
+					}
+				}
+				String company_TEMP_LOCAL_PATH = SysSetting.PROTOCOL + paraActionBase.companyInfo.getCompanyMainURL() + SysSetting.CONTEXT + "/TEMP_LOCAL_PATH";
+				firstInvalidNumberSecondFile = prepareNotInsertedProductCatalog(err_companyItemCatalogCABArrayList, errMsg_companyItemCatalogCABArrayList, company_TEMP_LOCAL_PATH);
+
+			}
+			else
+			{
+				firstInvalidNumberSecondFile = InvalidSheetFormate();
+			}
+		}
+		catch (Exception exception)
+		{
+			LogWriter.logError("readFileToCreateTemplateObject() :: " + exception);
+			exception.printStackTrace();
+			throw new BLLException(exception);
+		}
+		finally
+		{}
+		return firstInvalidNumberSecondFile;
+
+	}
+	public String[] prepareNotInsertedProductCatalog(ArrayList<CompanyItemCatalogCAB> err_companyItemCatalogCABArrayList, ArrayList<String> errMsg_companyItemCatalogCABArrayList, String company_TEMP_LOCAL_PATH)
+	{
+		String firstInvalidNumberSecondFile[] = new String[2];
+		ExcelReaderWriter excelReaderWriter = null;
+		int insertedCount = 0;
+		int notInsertedCount = 0;
+
+		CompanyItemCatalogCAB itemCatalogListForm;
+		ParticipantCopyExcel participantCopyExcel = new ParticipantCopyExcel();
+		File afile1 = participantCopyExcel.copyInvalidProductCatalogExcel();
+		String invalidEntryLink = company_TEMP_LOCAL_PATH + "/" + afile1.getName();
+
+		try
+		{
+			excelReaderWriter = new ExcelReaderWriter(SysSetting.TEMP_LOCAL_PATH + "\\" + afile1.getName());
+			excelReaderWriter.getSheet("Bulk Insert Catalog");
+			excelReaderWriter.setCellAddress("A6");
+			int rowNum = 7;
+			for (int i = 0; i < err_companyItemCatalogCABArrayList.size(); i++)
+			{
+				//excelReaderWriter.move(1, 0);
+				itemCatalogListForm = err_companyItemCatalogCABArrayList.get(i);
+				{
+					notInsertedCount++;
+					try
+					{
+						//excelReaderWriter.setCellAddress(itemCatalogListForm.getRowNum(), 0);
+						excelReaderWriter.write(itemCatalogListForm.getSkuPartNumber());
+						excelReaderWriter.move(0, 1);
+
+						excelReaderWriter.write(itemCatalogListForm.getMaterialNo());
+						excelReaderWriter.move(0, 1);
+
+						excelReaderWriter.write(itemCatalogListForm.getItemName());
+						excelReaderWriter.move(0, 1);
+
+						excelReaderWriter.write(itemCatalogListForm.getLongDescription());
+						excelReaderWriter.move(0, 1);
+
+						excelReaderWriter.write(itemCatalogListForm.getCompanyMeasureUnitID());
+						excelReaderWriter.move(0, 1);
+
+						excelReaderWriter.write(itemCatalogListForm.getItemBrand());
+						excelReaderWriter.move(0, 1);
+
+						excelReaderWriter.write(errMsg_companyItemCatalogCABArrayList.get(i));
+						excelReaderWriter.move(0, 1);
+
+						excelReaderWriter.move(1, -7);
+
+					}
+					catch (Exception exception)
+					{
+						exception.printStackTrace();
+					}
+					finally
+					{}
+				}
+				rowNum++;
+			}
+			excelReaderWriter.setAutoColumnWidth();
+			excelReaderWriter.save();
+			excelReaderWriter.close();
+		}
+		catch (Exception exception)
+		{
+			exception.printStackTrace();
+		}
+		firstInvalidNumberSecondFile[0] = "" + notInsertedCount;
+		firstInvalidNumberSecondFile[1] = invalidEntryLink;
+		return firstInvalidNumberSecondFile;
+	}
+	public boolean CompareProductExcel(Workbook workbook, HttpServletRequest request) throws Exception
+	{
+		ParaActionBase paraActionBase = new ParaActionBase();
+		paraActionBase.session = request.getSession();
+		paraActionBase.companyInfo = (CompanyInfo) paraActionBase.session.getAttribute("companyInfo");
+
+		boolean status = true;
+		Cell cell = null;
+		Sheet sheet = workbook.getSheet("Bulk Insert Catalog");
+		String getSheetNameFromUserUploaded = workbook.getSheetName(0);
+		if (getSheetNameFromUserUploaded.equals("Bulk Insert Catalog"))
+		{
+
+			if (sheet != null)
+			{
+				try
+				{
+					Row row = sheet.getRow(0);
+					if (row != null)
+					{
+						int colNum = 0;
+						int count = 0;
+
+						cell = row.getCell((short) colNum);
+						String skuNo = cell.getStringCellValue().trim();
+						if (!skuNo.equalsIgnoreCase("SKU / Part No*"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String materialNo = cell.getStringCellValue().trim();
+						if (!materialNo.equalsIgnoreCase("Material No."))
+						{
+							count++;
+						}
+
+						cell = row.getCell((short) ++colNum);
+						String sdescription = cell.getStringCellValue().trim();
+						if (!sdescription.equalsIgnoreCase("Short Description*"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String ldescription = cell.getStringCellValue().trim();
+						if (!ldescription.equalsIgnoreCase("Long Description"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String measurementUnit = cell.getStringCellValue().trim();
+						if (!measurementUnit.equalsIgnoreCase("Unit of Measure"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String brand = cell.getStringCellValue().trim();
+						if (!brand.equalsIgnoreCase("Brand"))
+						{
+							count++;
+						}
+						//						cell = row.getCell((short) ++colNum);
+						//						if (cell != null)
+						//						{
+						//							String remark = cell.getStringCellValue().trim();
+						//							if (!remark.equalsIgnoreCase("Remark"))
+						//							{
+						//								count++;
+						//							}
+						//						}
+						if (count > 0)
+						{
+							status = false;
+						}
+						else
+						{
+							status = true;
+						}
+					}
+				}
+				catch (Exception e)
+				{
+					// TODO: handle exception
+					e.printStackTrace();
+				}
+				finally
+				{}
+			}
+		}
+		else
+		{
+			status = false;
+		}
+		return status;
+	}
+	private String validateForBulkInsert(CompanyItemCatalogCAB companyItemCatalogCAB)
+	{
+		String message = null;
+		if (isEmpty(companyItemCatalogCAB.getSkuPartNumber()))
+		{
+			message = "SKU / Part No is empty";
+		}
+		if (isEmpty(companyItemCatalogCAB.getItemName()))
+		{
+			if (message == null)
+			{
+				message = "Short Description is empty";
+			}
+			else
+			{
+				message += ",Short Description is empty";
+			}
+		}
+		return message;
+
+	}
+
+	private boolean isEmpty(String data)
+	{
+		if (data == null)
+		{
+			return true;
+		}
+		else
+		{
+			data = data.trim();
+			if (data.length() > 0)
+			{
+				return false;
+			}
+			else
+			{
+				return true;
+			}
+		}
+	}
+	private boolean isEmpty(long data)
+	{
+		if (data == 0)
+		{
+			return false;
+		}
+		else
+		{
+			return true;
+		}
+	}
+	public void additionalProductfieldExeclFileCreate(String fileNameWithPath, String filename, HttpServletRequest request, ParaActionBase paraActionBase) throws Exception
+	{
+
+		int companyId = Integer.parseInt(request.getParameter("companyId"));
+		ProductCatalogExcelStyleCreator productCatalogExcelStyleCreator = new ProductCatalogExcelStyleCreator();
+		ExcelReaderWriter excelReaderWriter = new ExcelReaderWriter(fileNameWithPath, productCatalogExcelStyleCreator);
+		CompanyItemCatalogCAB companyItemCatalogCAB = null;
+		DataValidation dataValidation = null;
+		DataValidationConstraint constraint = null;
+		DataValidationHelper validationHelper = null;
+		validationHelper = new XSSFDataValidationHelper(xssfSheet);
+		CellRangeAddressList addressList = null;
+		ArrayList<String> companyMeasureUnit = new ArrayList<String>();
+		RFQService rfqService = null;
+
+		String aditionalFieldName = "";
+		RFQCover rfqCover = new RFQCover();
+		int col = 0;
+		Sheet local_sheet = null;
+		try
+		{
+			rfqService = new RFQService(request);
+
+			excelReaderWriter.createSheet("Bulk Insert Catalog");
+			excelReaderWriter.createRow(1);
+			excelReaderWriter.setRowHeight(450);
+
+			excelReaderWriter.setCellAddress("C2");
+			excelReaderWriter.write("BulkInsert Product Catalog");
+			excelReaderWriter.setStyle("titleStyle");
+			excelReaderWriter.move(3, -2);
+			
+			
+			excelReaderWriter.write("SKU / Part No*");
+			excelReaderWriter.setStyle("titleStyle");
+
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Material No.");
+			excelReaderWriter.setStyle("titleStyle");
+
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Short Description*");
+			excelReaderWriter.setStyle("titleStyle");
+
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Long Description");
+			excelReaderWriter.setStyle("titleStyle");
+
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Unit of Measure");
+			excelReaderWriter.setStyle("titleStyle");
+			//excelReaderWriter.setStyle(key);
+
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Brand");
+			excelReaderWriter.setStyle("titleStyle");
+			col = 0;
+
+			ArrayList<CompanyMeasureUnitCAB> companyMeasureUnitCABArrayList = null;
+			companyMeasureUnitCABArrayList = rfqService.findCompanyMeasureUnit(companyId);
+			String[] list1 = new String[companyMeasureUnitCABArrayList.size()];
+			for (int i = 0; i < companyMeasureUnitCABArrayList.size(); i++)
+			{
+				companyMeasureUnit.add(companyMeasureUnitCABArrayList.get(i).getUnitName());
+				list1[i] = companyMeasureUnitCABArrayList.get(i).getUnitName();
+			}
+			String companyMeasureUnits[] = companyMeasureUnit.toArray(new String[companyMeasureUnit.size()]);
+
+			addressList = new CellRangeAddressList(5, 105, 4, 4);
+			constraint = validationHelper.createExplicitListConstraint(companyMeasureUnits);
+			dataValidation = validationHelper.createValidation(constraint, addressList);
+			dataValidation.setSuppressDropDownArrow(true);
+			dataValidation.setShowErrorBox(true);
+			dataValidation.createErrorBox("Invalid Input", "Something is wrong - please, select from List!");
+			excelReaderWriter.addValidationData(dataValidation);
+			excelReaderWriter.setAutoColumnWidth();
+			excelReaderWriter.save();
+			excelReaderWriter.close();
+		}
+		catch (Exception e)
+		{
+			
+			e.printStackTrace();
+		}
+		finally
+		{
+			
+		}
+	}
+
+}
+class ProductCatalogExcelStyleCreator implements ExcelStyleCreator
+{
+
+	@Override
+	public void addExcelStyleSet(Workbook workbook, ExcelStyleSet excelStyleSet)
+	{
+		//TitleStyle
+		Font titleFont = workbook.createFont();
+		titleFont.setFontName("ARIAL");
+		titleFont.setBoldweight(HSSFFont.BOLDWEIGHT_BOLD);
+		titleFont.setFontHeightInPoints((short) 11);
+		titleFont.setColor(HSSFColor.BLACK.index);
+
+		CellStyle titleStyle = workbook.createCellStyle();
+		titleStyle.setFont(titleFont);
+		titleStyle.setAlignment(HSSFCellStyle.ALIGN_CENTER);
+		titleStyle.setVerticalAlignment(HSSFCellStyle.VERTICAL_TOP);
+		titleStyle.setWrapText(false);
+		//titleStyle.setFillBackgroundColor(HSSFColor.BLACK.index);
+		//titleStyle.setFillPattern(HSSFCellStyle.SOLID_FOREGROUND);
+
+		excelStyleSet.setStyle("titleStyle", titleStyle);
+}
+
+}

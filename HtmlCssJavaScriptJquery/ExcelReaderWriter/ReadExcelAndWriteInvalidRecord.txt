@@ -1,0 +1,530 @@
+bulkcatalog using ExcelReaderWriter
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+click on upload
++++++++++++++++++++++++++++++++
+
+public ActionForward reqProductCatalogExcelDetailsInsert(ActionMapping mapping, ActionForm form, HttpServletRequest request, HttpServletResponse response) throws Exception
+	{
+		ExcelReader excelReader = null;
+		ParaActionBase paraActionBase = ((FormBase) form).paraActionBase;
+		CommonFileForm commonFileForm = null;
+		CompanyUserCAB companyUserCAB = null;
+		AdminLogCAB adminLogCAB = null;
+		ParticipantExcelSpecification participantExcelSpecification = null;
+		paraActionBase.forwardString = ForwardConst.PRODUCT_CATALOG_BULK_INSERT;
+
+		String[] notInsertedCatalog = null;
+		String customFilePath = "";
+		ItemCatalogService itemCatalogService = null;
+
+		try
+		{
+			isSecured(new long[] { AdminPrivilegeConst.ADD_PARTICIPANT }, paraActionBase);
+			commonFileForm = (CommonFileForm) form;
+			adminLogCAB = adminEventLog(paraActionBase);
+			participantExcelSpecification = new ParticipantExcelSpecification(commonFileForm.getFormFile(), SysSetting.TEMP_LOCAL_PATH + "\\", paraActionBase.formator, Function.getHDGResourceBundleFromSession(paraActionBase.session));
+			participantExcelSpecification.moveExcelFile();
+			excelReader = new ExcelReader(SysSetting.TEMP_LOCAL_PATH + "\\" + commonFileForm.getFormFile());
+
+			adminLogCAB.setUrl(paraActionBase.httpServletRequest.getRequestURL().toString());
+			String URL1 = paraActionBase.httpServletRequest.getRequestURL().toString();
+			adminLogCAB.setRemoteIP(paraActionBase.getClientIP());
+			String RemoteIP = paraActionBase.getClientIP();
+
+			companyUserCAB = new CompanyUserCAB();
+			itemCatalogService = new ItemCatalogService(request);
+			String locale = ((Locale) request.getSession().getAttribute(Globals.LOCALE_KEY)).getLanguage();
+
+			participantExcelSpecification = new ParticipantExcelSpecification(commonFileForm.getFormFile(), SysSetting.PHYSICAL_PATH_FOR_DATAFILE, paraActionBase.formator, Function.getHDGResourceBundleFromSession(paraActionBase.session));
+
+			String newFileName = participantExcelSpecification.moveExcelFileToCustomPath(SysSetting.Temp_PATH + "\\BulkInsertCatalog\\" + paraActionBase.companyInfo.getCompanyID() + "\\");
+
+			customFilePath = SysSetting.Temp_PATH + "\\BulkInsertCatalog\\" + paraActionBase.companyInfo.getCompanyID() + "\\";
+			notInsertedCatalog = participantExcelSpecification.readFileToCreateBulkInsertCatalog(paraActionBase.formator, request, URL1, RemoteIP, customFilePath, newFileName);
+
+			String notInsertedProductCount = notInsertedCatalog[0];
+			int count = Integer.parseInt(notInsertedProductCount);
+			String URL = notInsertedCatalog[1];
+
+			String locale1 = ((Locale) request.getSession().getAttribute(Globals.LOCALE_KEY)).getLanguage();
+
+			try
+			{
+				int testFlag = 0;
+				if (count == 0)
+				{
+
+					paraActionBase.messageObject.addKey("ProductCatalogAttechment");
+					setConfirmation(paraActionBase);
+				}
+				else if (count > 0)
+				{
+					String invalidParticipent = String.valueOf(count);
+					paraActionBase.messageObject.addKey("BulkInsertCatalogError");
+					setBLLErrorFlash(paraActionBase);
+					testFlag = 1;
+					request.setAttribute("value", testFlag);
+					request.setAttribute("url", URL);
+
+				}
+
+				else if (count == -1)
+				{
+					paraActionBase.messageObject.addKey("InvalidExcelFormate");
+					setBLLErrorFlash(paraActionBase);
+				}
+
+			}
+			catch (Exception exception)
+			{
+				LogWriter.logError("participantExcelTemplateSubmit()::", exception);
+			}
+
+		}
+
+		catch (ServiceLocatorException serviceLocatorException)
+		{
+			serviceLocatorException.printStackTrace();
+		}
+
+		finally
+		{
+			adminLogCAB = null;
+		}
+
+		return mapping.findForward(paraActionBase.forwardString);
+
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+public String[] readFileToCreateBulkInsertCatalog(FormatorNetx formator, HttpServletRequest request, String uRL1, String remoteIP, String customFilePath, String newFileName) throws BLLException
+	{
+		ExcelReader excelReader = null;
+		CompanyItemCatalogCAB companyItemCatalogCAB = null;
+		ItemCatalogService itemCatalogService = null;
+		AdminLogCAB adminLogCAB = new AdminLogCAB();
+		ParaActionBase paraActionBase = new ParaActionBase();
+		String firstInvalidNumberSecondFile[] = null;
+		ExecuteSqlInLoop executeSqlInLoopUnit = null;
+		ExcelReaderWriter excelReaderWriter = null;
+		ArrayList<CompanyItemCatalogCAB> companyItemCatalogCABArrayList = new ArrayList<>();
+		ItemCatalogListAction itemCatalogListAction = null;
+		try
+		{
+			paraActionBase.session = request.getSession();
+			itemCatalogService = new ItemCatalogService(request);
+			itemCatalogListAction = new ItemCatalogListAction();
+			executeSqlInLoopUnit = new ExecuteSqlInLoop();
+			paraActionBase.companyInfo = (CompanyInfo) paraActionBase.session.getAttribute("companyInfo");
+			excelReaderWriter = new ExcelReaderWriter(customFilePath + newFileName);
+			excelReader = new ExcelReader(customFilePath + newFileName);
+			excelReader.setSheet(0);
+			excelReader.setCellAddress("A6");
+			long companyId = paraActionBase.companyInfo.getCompanyID();
+			excelReader.newMaxBufferDataCell(6);
+
+			CellData[] cellDataArray = null;
+			boolean readRow = true;
+			int blankRowCounter = 0;
+			int counter = 0;
+			int rowNullCount = 0;
+			int rowCounter = 0;
+			executeSqlInLoopUnit.openSql("select companyMeasureUnitID from CompanyMeasureUnit where lower(unitName)=? and companyID=?");
+			String fileName = newFileName;
+			String fileExtension = fileName.substring(fileName.lastIndexOf('.') + 1);
+
+			if (fileExtension.equals("xls"))
+			{
+				workbook1 = new HSSFWorkbook(new FileInputStream(customFilePath + newFileName));
+			}
+			if (fileExtension.equals("xlsx"))
+			{
+				workbook1 = new XSSFWorkbook(new FileInputStream(customFilePath + newFileName));
+			}
+
+			if (CompareProductExcel(workbook1, request))
+			{
+				excelReaderWriter.setSheet("Bulk Insert Catalog");
+				int lastRowOfSheet = excelReaderWriter.getLastRowNum();
+				while (rowCounter < lastRowOfSheet)
+				{
+					companyItemCatalogCAB = new CompanyItemCatalogCAB();
+
+					excelReader.readRow(6);
+					cellDataArray = excelReader.getCellDataArray();
+
+					for (int i = 0; i < cellDataArray.length; i++)
+					{
+						CellType cellType = cellDataArray[i].cellType;
+						String cell = new String(cellType + "");
+						switch (cellDataArray[i].currentColumnIndex)
+						{
+							case 0:
+
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setSkuPartNumber(cellDataArray[i].stringData);
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									if ((cellDataArray[i].numeric) == 0.0)
+									{
+										companyItemCatalogCAB.setSkuPartNumber("");
+									}
+									else
+									{
+										companyItemCatalogCAB.setSkuPartNumber(cellDataArray[i].numeric + "");
+									}
+								}
+								break;
+							case 1:
+
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setMaterialNo(cellDataArray[i].stringData);
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									companyItemCatalogCAB.setMaterialNo(cellDataArray[i].numeric + "");
+								}
+								break;
+
+							case 2:
+
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setItemName(cellDataArray[i].stringData);
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									companyItemCatalogCAB.setItemName(cellDataArray[i].numeric + "");
+								}
+								break;
+							case 3:
+
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setLongDescription(cellDataArray[i].stringData);
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									companyItemCatalogCAB.setLongDescription(cellDataArray[i].numeric + "");
+								}
+								break;
+
+							case 4:
+
+								if (cell.contains("STRING"))
+								{
+									String unitName = cellDataArray[i].stringData;
+									unitName = trimLower(unitName);
+									companyItemCatalogCAB.setCompanyMeasureUnitID(getCompanyMeasureUnitID1(unitName, companyId, executeSqlInLoopUnit) + "");
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									companyItemCatalogCAB.setCompanyMeasureUnitID(cellDataArray[i].numeric + "");
+								}
+								break;
+							case 5:
+
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setItemBrand(cellDataArray[i].stringData);
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									companyItemCatalogCAB.setItemBrand(cellDataArray[i].numeric + "");
+								}
+								break;
+							default:
+								break;
+						}
+					}
+					if ((companyItemCatalogCAB.getSkuPartNumber() == null || companyItemCatalogCAB.getSkuPartNumber() == "") && (companyItemCatalogCAB.getMaterialNo() == null || companyItemCatalogCAB.getMaterialNo().contains("0.0")) && (companyItemCatalogCAB.getItemName() == null || companyItemCatalogCAB.getItemName().contains("0.0")) && (companyItemCatalogCAB.getLongDescription() == null || companyItemCatalogCAB.getLongDescription().contains("0.0")) && (companyItemCatalogCAB.getCompanyMeasureUnitID() == null || companyItemCatalogCAB.getCompanyMeasureUnitID().contains("0")) && (companyItemCatalogCAB.getItemBrand() == null || companyItemCatalogCAB.getItemBrand().contains("0.0")))
+					{
+						rowNullCount++;
+						if (rowNullCount > 10)
+						{
+							break;
+						}
+					}
+					else
+					{
+						rowNullCount = 0;
+						companyItemCatalogCABArrayList.add(companyItemCatalogCAB);
+					}
+					excelReader.move(1, -6);
+					rowCounter++;
+				}
+
+				ArrayList<CompanyItemCatalogCAB> err_companyItemCatalogCABArrayList = new ArrayList<CompanyItemCatalogCAB>();
+				ArrayList<String> errMsg_companyItemCatalogCABArrayList = new ArrayList<String>();
+				for (int i = 0; i < companyItemCatalogCABArrayList.size(); i++)
+				{
+					companyItemCatalogCAB = companyItemCatalogCABArrayList.get(i);
+					String message = validateForBulkInsert(companyItemCatalogCAB);
+					if (message == null)
+					{
+						companyItemCatalogCAB.setCompanyID((int) companyId);
+						boolean isDuplicated = itemCatalogListAction.insertProductCatalog(companyItemCatalogCAB, itemCatalogService);
+						if (!isDuplicated)
+						{
+							err_companyItemCatalogCABArrayList.add(companyItemCatalogCAB);
+							errMsg_companyItemCatalogCABArrayList.add("SKU / Part No Exist!");
+						}
+					}
+					else
+					{
+						err_companyItemCatalogCABArrayList.add(companyItemCatalogCAB);
+						errMsg_companyItemCatalogCABArrayList.add(message);
+					}
+				}
+				String company_TEMP_LOCAL_PATH = SysSetting.PROTOCOL + paraActionBase.companyInfo.getCompanyMainURL() + SysSetting.CONTEXT + "/TEMP_LOCAL_PATH";
+				firstInvalidNumberSecondFile = prepareNotInsertedProductCatalog(err_companyItemCatalogCABArrayList, errMsg_companyItemCatalogCABArrayList, company_TEMP_LOCAL_PATH);
+
+			}
+			else
+			{
+				firstInvalidNumberSecondFile = InvalidSheetFormate();
+			}
+		}
+		catch (Exception exception)
+		{
+			LogWriter.logError("readFileToCreateTemplateObject() :: " + exception);
+			exception.printStackTrace();
+			throw new BLLException(exception);
+		}
+		finally
+		{}
+		return firstInvalidNumberSecondFile;
+
+	}
+
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+public boolean CompareProductExcel(Workbook workbook, HttpServletRequest request) throws Exception
+	{
+		ParaActionBase paraActionBase = new ParaActionBase();
+		paraActionBase.session = request.getSession();
+		paraActionBase.companyInfo = (CompanyInfo) paraActionBase.session.getAttribute("companyInfo");
+
+		boolean status = true;
+		Cell cell = null;
+		Sheet sheet = workbook.getSheet("Bulk Insert Catalog");
+		String getSheetNameFromUserUploaded = workbook.getSheetName(0);
+		if (getSheetNameFromUserUploaded.equals("Bulk Insert Catalog"))
+		{
+
+			if (sheet != null)
+			{
+				try
+				{
+					Row row = sheet.getRow(0);
+					if (row != null)
+					{
+						int colNum = 0;
+						int count = 0;
+
+						cell = row.getCell((short) colNum);
+						String skuNo = cell.getStringCellValue().trim();
+						if (!skuNo.equalsIgnoreCase("SKU / Part No*"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String materialNo = cell.getStringCellValue().trim();
+						if (!materialNo.equalsIgnoreCase("Material No."))
+						{
+							count++;
+						}
+
+						cell = row.getCell((short) ++colNum);
+						String sdescription = cell.getStringCellValue().trim();
+						if (!sdescription.equalsIgnoreCase("Short Description*"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String ldescription = cell.getStringCellValue().trim();
+						if (!ldescription.equalsIgnoreCase("Long Description"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String measurementUnit = cell.getStringCellValue().trim();
+						if (!measurementUnit.equalsIgnoreCase("Unit of Measure"))
+						{
+							count++;
+						}
+						cell = row.getCell((short) ++colNum);
+						String brand = cell.getStringCellValue().trim();
+						if (!brand.equalsIgnoreCase("Brand"))
+						{
+							count++;
+						}
+						//						cell = row.getCell((short) ++colNum);
+						//						if (cell != null)
+						//						{
+						//							String remark = cell.getStringCellValue().trim();
+						//							if (!remark.equalsIgnoreCase("Remark"))
+						//							{
+						//								count++;
+						//							}
+						//						}
+						if (count > 0)
+						{
+							status = false;
+						}
+						else
+						{
+							status = true;
+						}
+					}
+				}
+				catch (Exception e)
+				{
+					// TODO: handle exception
+					e.printStackTrace();
+				}
+				finally
+				{}
+			}
+		}
+		else
+		{
+			status = false;
+		}
+		return status;
+	}
+	
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+public boolean insertProductCatalog(CompanyItemCatalogCAB companyItemCatalogCAB, ItemCatalogService itemCatalogService)
+	{
+		boolean isDuplicatedOrNotInserted = false;
+
+		try
+		{
+			isDuplicatedOrNotInserted = itemCatalogService.productCatalogInfoSubmit(companyItemCatalogCAB);
+		}
+		catch (ServiceLocatorException serviceLocatorException)
+		{
+			isDuplicatedOrNotInserted = false;
+			serviceLocatorException.printStackTrace();
+		}
+		finally
+		{}
+		return isDuplicatedOrNotInserted;
+	}
+
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+public String[] prepareNotInsertedProductCatalog(ArrayList<CompanyItemCatalogCAB> err_companyItemCatalogCABArrayList, ArrayList<String> errMsg_companyItemCatalogCABArrayList, String company_TEMP_LOCAL_PATH)
+	{
+		String firstInvalidNumberSecondFile[] = new String[2];
+		ExcelReaderWriter excelReaderWriter = null;
+		int insertedCount = 0;
+		int notInsertedCount = 0;
+
+		CompanyItemCatalogCAB itemCatalogListForm;
+		ParticipantCopyExcel participantCopyExcel = new ParticipantCopyExcel();
+		File afile1 = participantCopyExcel.copyInvalidProductCatalogExcel();
+		String invalidEntryLink = company_TEMP_LOCAL_PATH + "/" + afile1.getName();
+
+		try
+		{
+			excelReaderWriter = new ExcelReaderWriter(SysSetting.TEMP_LOCAL_PATH + "\\" + afile1.getName());
+			excelReaderWriter.getSheet("Bulk Insert Catalog");
+			excelReaderWriter.setCellAddress("A6");
+			int rowNum = 7;
+			for (int i = 0; i < err_companyItemCatalogCABArrayList.size(); i++)
+			{
+				//excelReaderWriter.move(1, 0);
+				itemCatalogListForm = err_companyItemCatalogCABArrayList.get(i);
+				{
+					notInsertedCount++;
+					try
+					{
+						//excelReaderWriter.setCellAddress(itemCatalogListForm.getRowNum(), 0);
+						excelReaderWriter.write(itemCatalogListForm.getSkuPartNumber());
+						excelReaderWriter.move(0, 1);
+
+						excelReaderWriter.write(itemCatalogListForm.getMaterialNo());
+						excelReaderWriter.move(0, 1);
+
+						excelReaderWriter.write(itemCatalogListForm.getItemName());
+						excelReaderWriter.move(0, 1);
+
+						excelReaderWriter.write(itemCatalogListForm.getLongDescription());
+						excelReaderWriter.move(0, 1);
+
+						excelReaderWriter.write(itemCatalogListForm.getCompanyMeasureUnitID());
+						excelReaderWriter.move(0, 1);
+
+						excelReaderWriter.write(itemCatalogListForm.getItemBrand());
+						excelReaderWriter.move(0, 1);
+
+						excelReaderWriter.write(errMsg_companyItemCatalogCABArrayList.get(i));
+						excelReaderWriter.move(0, 1);
+
+						excelReaderWriter.move(1, -7);
+
+					}
+					catch (Exception exception)
+					{
+						exception.printStackTrace();
+					}
+					finally
+					{}
+				}
+				rowNum++;
+			}
+			excelReaderWriter.setAutoColumnWidth();
+			excelReaderWriter.save();
+			excelReaderWriter.close();
+		}
+		catch (Exception exception)
+		{
+			exception.printStackTrace();
+		}
+		firstInvalidNumberSecondFile[0] = "" + notInsertedCount;
+		firstInvalidNumberSecondFile[1] = invalidEntryLink;
+		return firstInvalidNumberSecondFile;
+	}
+	
+
+
++++++++++++++++++++++++++++++++++++++++++++
+public String[] InvalidSheetFormate()
+	{
+		String firstInvalidNumberSecondFile[] = new String[2];
+		int notInsertedCount = -1;
+		String invalidEntryLink = null;
+		firstInvalidNumberSecondFile[0] = "" + notInsertedCount;
+		firstInvalidNumberSecondFile[1] = invalidEntryLink;
+		return firstInvalidNumberSecondFile;
+	}
+	
+
+
+
+

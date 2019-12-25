@@ -1,0 +1,438 @@
+/*
+
+ NOTICE
+
+ Liability, COPYRIGHT NetXs Solutions Inc
+ ALL RIGHTS RESERVED
+
+ This document is CONFIDENTIAL and a TRADE SECRET of NetXs Solutions Inc. The receipt or possession 
+ of this document does not convey any rights to reproduce, modify, distribute or disclose its contents, 
+ or to manufacture, use, or sell anything that it may describe, in whole or in part, without the 
+ specific written consent of NetXs Solutions Inc.  Any use, modification, distribution or reproduction 
+ of this document without the express written consent of NetXs Solutions Inc. is a violation of the 
+ copyright laws and may subject you to criminal and or civil prosecution.
+
+ */
+/**********************************************************************************************
+ Name of the application               ProcurePort
+ Name of the code                      
+ Purpose of the code                   Report Basic functionality
+ Start date of code                    12:31 PM 31/1/2009
+ last modification date.               12:31 PM 31/1/2009
+ Coder's name.                         AK
+ Last modifier's name.                 AK
+ Version number of the code.           1.0
+ Last QA Person.                       
+ Last QC date.                         
+ Redirected From the File              Common class
+ **********************************************************************************************/
+
+package com.hdg.admin.report;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.util.ResourceBundle;
+
+import org.apache.poi.hssf.usermodel.HSSFCell;
+import org.apache.poi.hssf.usermodel.HSSFCellStyle;
+import org.apache.poi.hssf.usermodel.HSSFFont;
+import org.apache.poi.hssf.usermodel.HSSFRow;
+import org.apache.poi.hssf.usermodel.HSSFSheet;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFCell;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFFont;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.struts.upload.FormFile;
+
+import com.hdg.client.cabin.ListCover;
+import com.hdg.client.javaBean.CompanyInfo;
+import com.hdg.common.SysSetting;
+import org.apache.poi.ss.usermodel.Font;
+import com.netx.FormatorNetx;
+import com.netx.General;
+import com.netx.util.LogWriter;
+
+public abstract class ReportBase implements java.io.Serializable
+{
+	protected String	     fileName;
+	protected String	     filePath;
+	protected FormatorNetx	 formator;
+	protected ResourceBundle	resourceBundle;
+	protected CompanyInfo	 companyInfo;
+	protected ListCover	     listCover;
+	protected FormFile	     formFile;
+	protected HSSFWorkbook	 workbook	                                                                   = null;
+	protected Workbook		 workbook1	                                                                   = null; // Mahendra
+	protected XSSFWorkbook	 xssfWorkbook	                                                               = null;
+	protected Sheet	  	   sheet1	                                                                       = null;
+	protected HSSFSheet	     sheet	                                                                       = null;  // Mahendra
+	protected XSSFSheet     xssfSheet	                                                                   = null;
+	protected Row	     	row1	                                                                       = null;   // Mahendra
+	protected HSSFRow	     row	                                                                       = null;
+	protected XSSFRow	     xssfrow                                                                       = null;  // ---
+	protected HSSFFont      subCaptionFont																   = null;
+	protected Cell		     cell1	                                                                       = null;   // Mahendra
+	protected HSSFCell	     cell	                                                                       = null;
+	protected XSSFCell	     xssfcell	                                                                   = null;
+	protected HSSFFont	     captionFont	                                                               = null;
+	protected XSSFFont	     xssfCaptionFont	                                                               = null;
+	protected HSSFFont	     captionFontNew	                                                               = null;
+	protected HSSFFont	     itemHeaderFont	                                                               = null;
+	protected HSSFFont	     sectionHeaderFont	                                                           = null;
+
+	protected HSSFFont	     captionFontNormal	                                                           = null;
+	protected HSSFFont	     captionFontBlue	                                                           = null;
+	protected HSSFFont	     headingFont	                                                               = null;
+	protected XSSFFont	     xssfHeadingFont	                                                           = null;
+	protected XSSFFont	     xssfHeadingFontNo	                                                           = null;
+	protected HSSFFont	     valueFont	                                                                   = null;
+	protected HSSFFont	     valueFontHyperLink	                                                           = null;
+	protected HSSFFont	     valueFontBold	                                                               = null;
+	protected XSSFFont	     xssfvalueFontBold                                                             = null; 	// ---
+	protected Font			 valueFontBold1																   = null;  // ---	
+	protected HSSFFont	     valueFontWithoutBold	                                                       = null;
+	protected HSSFCellStyle	 cellStyle	                                                                   = null;
+	protected HSSFCellStyle	 captionCellStyle	                                                           = null;
+	protected XSSFCellStyle	 xssfCaptionCellStyle	                                                           = null;
+	protected HSSFCellStyle	 captionLeftCellStyle	                                                       = null;
+	protected HSSFCellStyle	 captionRightCellStyle	                                                       = null;
+	protected HSSFCellStyle	 captionLeftCellStyleWithoutBold	                                           = null;
+	protected HSSFCellStyle	 captionCenterAlignCellStyle	                                               = null;
+	protected HSSFCellStyle	 headingCellStyle	                                                           = null;
+	protected XSSFCellStyle	 XSSFHeadingCellStyle                                                          = null;
+	protected HSSFCellStyle	 listHeadingCellStyle	                                                       = null;
+	protected XSSFCellStyle	 xssfListHeadingCellStyle	                                                       = null;
+	protected HSSFCellStyle	 listHeadingLeftCellStyle	                                                   = null;
+	protected HSSFCellStyle	 valueCenterAlignStyle	                                                       = null;
+	protected HSSFCellStyle	 sectionHeaderCellStyle	                                                       = null;
+	protected HSSFCellStyle	 sectionHeaderCellStyleAlignRight	                                           = null;
+	protected HSSFCellStyle	 ItemHeaderCellStyleAlignTop	                                               = null;
+	protected HSSFCellStyle	 ItemHeaderCellStyleAlignRight	                                               = null;
+	protected HSSFCellStyle	 valueLeftAlignStyleAlignTop	                                               = null;
+	protected HSSFCellStyle	 valueLeftAlignStyleAlignTopHyperLink	                                       = null;
+	protected HSSFCellStyle	 valueLeftAlignStyleAlignTopGray	                                           = null;
+	protected HSSFCellStyle	 valueLeftAlignStyleAlignTopLightBlue	                                       = null;
+	protected HSSFCellStyle	 valueLeftAlignStyleAlignTopGrayHyperLink	                                   = null;
+	protected HSSFCellStyle	 valueLeftAlignStyleAlignTopLightBlueHyperLink	                               = null;
+
+	protected HSSFCellStyle	 valueCenterAlignWrapTextStyle	                                               = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleWithDataFormat	                                       = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleWithDataFormat1	                                       = null;
+	protected HSSFCellStyle	 newvalueCenterAlignStyleWithDataFormat1	                                   = null;
+	protected HSSFCellStyle	 newvalueRightAlignStyleWithDataFormat1ForCustField	                           = null;
+	protected HSSFCellStyle	 valueRightAlignStyle	                                                       = null;
+	protected HSSFCellStyle	 valueRightAlignStyleNoBorder	                                               = null;
+	protected HSSFCellStyle	 valueRightAlignStyleNoBorderForTrLotValueTotal	                               = null;
+	protected HSSFCellStyle	 valueRightAlignStyleNoBorderNew	                                           = null;
+	protected HSSFCellStyle	 valueLeftAlignStyle	                                                       = null;
+	protected HSSFCellStyle	 doubleBorderCellStyle	                                                       = null;
+	protected HSSFCellStyle	 OutlineBorderCellStyle	                                                       = null;
+	protected HSSFCellStyle	 ItemHeaderCellStyle	                                                       = null;
+	protected HSSFCellStyle	 ItemHeaderCellStyleRed	                                                       = null;
+	protected HSSFCellStyle	 ItemHeaderCellStyleWithNoWrap	                                               = null;
+	protected HSSFCellStyle	 ItemHeaderCellStyleLeftBorderMedium	                                       = null;
+	protected HSSFCellStyle	 ItemHeaderCellStyleRightBorderMedium	                                       = null;
+	protected XSSFCellStyle	 xssfItemHeaderCellStyleRightBorderMedium	                                   = null;  //---
+	protected CellStyle	 	 ItemHeaderCellStyleRightBorderMedium1	                          	           = null;  //---
+	protected HSSFCellStyle	 valueCenterAlignLeftBorderMediumStyle	                                       = null;
+	protected HSSFCellStyle	 valueCenterAlignRightBorderMediumStyle	                                       = null;
+	protected HSSFCellStyle	 valueRightAlignLeftBorderMediumStyle	                                       = null;
+	protected HSSFCellStyle	 valueRightAlignRightBorderMediumStyle	                                       = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleLightBlueBackground	                                   = null;
+	protected HSSFCellStyle	 valueRightAlignStyleLightBlueBackground	                                   = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleLightYellowBackground	                                   = null;
+
+	protected HSSFCellStyle	 valueCenterAlignStyleFirstRankWithThinBorderWithDataFormatPercentageTotal	   = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleSecondRankWithThinBorderWithDataFormatPercentageTotal	   = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleThirdRankWithThinBorderWithDataFormatPercentageTotal	   = null;
+
+	protected HSSFCellStyle	 valueCenterAlignStyleLightBlueBackgroundWithThinBorder	                       = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleLightBlueBackgroundWithDataFormat	                       = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleLightBlueBackgroundWithDataFormatForGrpTotal	           = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleFirstRank	                                               = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleSecondRank	                                           = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleThirdRank	                                               = null;
+
+	protected HSSFCellStyle	 valueCenterAlignStyleFirstRankWithThinBorder	                               = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleSecondRankWithThinBorder	                               = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleThirdRankWithThinBorder	                               = null;
+
+	protected HSSFCellStyle	 valueRightAlignStyleFirstRankWithThinBorder	                               = null;
+	protected HSSFCellStyle	 valueRightAlignStyleSecondRankWithThinBorder	                               = null;
+	protected HSSFCellStyle	 valueRightAlignStyleThirdRankWithThinBorder	                               = null;
+
+	protected HSSFCellStyle	 valueCenterAlignStyleFirstRankWithThinBorderWithDataFormat	                   = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleFirstRankWithThinBorderWithDataFormatForTrLotValueTotal	= null;
+	protected HSSFCellStyle	 valueCenterAlignStyleFirstRankWithThinBorderWithDataFormatForGrpTotal	       = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleFirstRankWithThinBorderWithDataFormatNew	               = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleSecondRankWithThinBorderWithDataFormat	               = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleSecondRankWithThinBorderWithDataFormatForTrLotValueTotal	= null;
+	protected HSSFCellStyle	 valueCenterAlignStyleSecondRankWithThinBorderWithDataFormatForGrpTotal	       = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleSecondRankWithThinBorderWithDataFormatNew	               = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleThirdRankWithThinBorderWithDataFormat	                   = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleThirdRankWithThinBorderWithDataFormatForTrLotValueTotal	= null;
+	protected HSSFCellStyle	 valueCenterAlignStyleThirdRankWithThinBorderWithDataFormatForGrpTotal	       = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleThirdRankWithThinBorderWithDataFormatNew	               = null;
+
+	protected HSSFCellStyle	 valueRightAlignStyleWithNoBlueBackground	                                   = null;
+	protected HSSFCellStyle	 valueRightAlignStyleWithNoBlueBackgroundForCustomField	                       = null;
+	protected HSSFCellStyle	 valueRightTopAlign	                                                           = null;
+	protected HSSFCellStyle	 valueCenterAlignStyleLightGreenBackgroundWithDataFormatforFirstRank	       = null;
+
+	protected HSSFCellStyle	 valueCenterAlignStyleWithDataFormatForExtValueTotal	                       = null;
+	
+	protected HSSFCellStyle	 sublistCellStyle	                                                           = null;
+	protected HSSFCellStyle  captionCellStyleNew														   = null;
+	protected HSSFCellStyle	 ItemHeaderCellStyleRightBorderMediumWithGreyColour	                                       = null;	
+	protected HSSFFont	     valueFontBoldBlack	                                                               = null;
+	protected CellStyle	 	 ItemHeaderCellStyleRightBorderMediumWithGreyColour1	                       = null; //---
+	protected Font		     valueFontBoldBlack1	                                                       = null; //---
+	/////////
+
+	/////////
+	protected Font	     captionFont1	                                                               = null;
+	protected Font	     headingFont1	                                                               = null;
+	protected Font	     itemHeaderFont1	                                                           = null;
+	protected Font	     sectionHeaderFont1	                                                           = null;
+	protected Font	     captionFontNormal1	                                                           = null;
+	protected Font	     valueFont1	                                                           = null;
+	protected Font	     valueFontHyperLink1	                                                           = null;
+	protected CellStyle	 cellStyle1	                                                                   = null;
+	protected CellStyle	 captionCellStyle1	                                                           = null;
+	protected CellStyle	 headingCellStyle1	                                                           = null;
+	protected CellStyle	 listHeadingCellStyle1	                                                       = null;
+	protected CellStyle	 valueRightAlignStyle1	                                                       = null;
+	protected CellStyle	 valueLeftAlignStyle1	                                                       = null;
+	protected CellStyle	 valueLeftAlignStyleAlignTop1	                                               = null;
+	protected CellStyle	 valueLeftAlignStyleAlignTopHyperLink1	                                       = null;
+	protected CellStyle	 valueLeftAlignStyleAlignTopGray1	                                           = null;
+	protected CellStyle	 valueLeftAlignStyleAlignTopGrayHyperLink1	                                   = null;
+	protected CellStyle	 valueLeftAlignStyleAlignTopLightBlue1	                                     	= null;
+	protected CellStyle	 valueLeftAlignStyleAlignTopLightBlueHyperLink1	                               = null;
+	protected CellStyle	 ItemHeaderCellStyle1	                                                       = null;
+	protected CellStyle	 ItemHeaderCellStyleAlignTop1	                                               = null;
+	protected CellStyle	 sectionHeaderCellStyle1	                                                  	= null;
+	protected CellStyle	 ItemHeaderCellStyleRed1                                                          = null;
+	                                                           
+	protected XSSFFont	     xssfItemHeaderFont	                                                           = null;
+	protected XSSFFont	     xssfSectionHeaderFont	                                                           = null;
+	protected XSSFFont	     xssfCaptionFontNormal	                                                           = null;
+	protected XSSFFont	     xssfValueFont	                                                           = null;
+	protected XSSFFont	     xssfValueFontHyperLink	                                                           = null;
+	protected XSSFCellStyle	 xssfCellStyle	                                                                   = null;	                                                      
+	protected XSSFCellStyle	 xssfHeadingCellStyle	                                                           = null;
+	protected XSSFCellStyle	 xssfValueRightAlignStyle	                                                       = null;
+	protected XSSFCellStyle	 xssfValueLeftAlignStyle	                                                       = null;
+	protected XSSFCellStyle	 xssfValueLeftAlignStyleAlignTop	                                                       = null;
+	protected XSSFCellStyle	 xssfValueLeftAlignStyleAlignTopHyperLink	                                                       = null;
+	protected XSSFCellStyle	 xssfValueLeftAlignStyleAlignTopGray	                                                       = null;
+	protected XSSFCellStyle	 xssfValueLeftAlignStyleAlignTopGrayHyperLink	                                                       = null;
+	protected XSSFCellStyle	 xssfValueLeftAlignStyleAlignTopLightBlue	                                                       = null;
+	protected XSSFCellStyle	 xssfValueLeftAlignStyleAlignTopLightBlueHyperLink                                                       = null;
+	protected XSSFCellStyle	 xssfItemHeaderCellStyle	                                                           = null;
+	protected XSSFCellStyle	 xssfItemHeaderCellStyleAlignTop	                                                           = null;
+	protected XSSFCellStyle	 xssfSectionHeaderCellStyle	                                                           = null;
+	protected XSSFCellStyle	 xssfItemHeaderCellStyleRed                                                          = null;
+	/*** Synonym Constant ***/
+	public static final int	 NO_SYN	                                                                       = -1;
+	public static final int	 PROJECT	                                                                   = 0;
+	public static final int	 RFI	                                                                       = 1;
+	public static final int	 RFP	                                                                       = 2;
+	public static final int	 RFQ	                                                                       = 3;
+	public static final int	 APPROVER	                                                                   = 4;
+	public static final int	 COLLABORATOR	                                                               = 5;
+	public static final int	 EVENTVIEWER	                                                               = 6;
+	public static final int	 AUDITOR	                                                                   = 7;
+	/*** End of Synonym Constant ***/
+
+	int	                     rowIndex	                                                                   = 0, j = 0;
+	int	                     cur_row	                                                                   = 0;
+
+	Integer	                 rowIndexObject	                                                               = 0;
+
+	FileOutputStream	     fileOutputStream	                                                           = null;
+	FileInputStream	         fileInputStream	                                                           = null;
+	
+	protected HSSFCellStyle	 dateFormate              = null; 
+	protected HSSFCellStyle	 sublistCellStyleNew              = null;
+	
+	//used for reading Excel sheet
+	public ReportBase(FormFile formFile, String filePath, FormatorNetx formator, ResourceBundle resourceBundle)
+	{
+		this.formFile = formFile;
+		this.fileName = formFile.getFileName();
+		this.filePath = filePath;
+		this.formator = formator;
+		this.resourceBundle = resourceBundle;
+		rowIndex = 0;
+	}
+	public ReportBase(FormFile formFile, String filePath, FormatorNetx formator, ResourceBundle resourceBundle, CompanyInfo companyInfo)
+	{
+		this.formFile = formFile;
+		this.fileName = formFile.getFileName();
+		this.filePath = filePath;
+		this.formator = formator;
+		this.resourceBundle = resourceBundle;
+		this.companyInfo = companyInfo;
+		rowIndex = 0;
+	}
+	//used for writing Excel sheet
+	public ReportBase(String filePath, FormatorNetx formator, ResourceBundle resourceBundle)
+	{
+		this.fileName = General.getNewFileName() + ".xls";
+		this.filePath = filePath;
+		this.formator = formator;
+		this.resourceBundle = resourceBundle;
+		rowIndex = 0;
+	}
+	public ReportBase(String filePath, FormatorNetx formator, ResourceBundle resourceBundle, CompanyInfo companyInfo)
+	{
+		this.fileName = General.getNewFileName() + ".xls";
+		this.filePath = filePath;
+		this.formator = formator;
+		this.resourceBundle = resourceBundle;
+		this.companyInfo = companyInfo;
+		rowIndex = 0;
+	}
+	public ReportBase(String filePath, FormatorNetx formator, ResourceBundle resourceBundle, ListCover listCover)
+	{
+		this.fileName = General.getNewFileName() + ".xls";
+		this.filePath = filePath;
+		this.formator = formator;
+		this.resourceBundle = resourceBundle;
+		this.listCover = listCover;
+		rowIndex = 0;
+	}
+	
+	public void writeExcelFilexlsx() throws Exception
+	{
+		fileOutputStream = new FileOutputStream(filePath + fileName);
+		this.workbook1.write(fileOutputStream);
+		fileOutputStream.flush();
+		fileOutputStream.close();
+	}
+
+	public void writeExcelFile() throws Exception
+	{
+		fileOutputStream = new FileOutputStream(filePath + fileName);
+		String ext = fileName.substring(fileName.lastIndexOf(".") + 1);
+		if(ext.equals("xls"))
+		{
+		this.workbook.write(fileOutputStream);
+		}
+		else
+		{
+			this.xssfWorkbook.write(fileOutputStream);
+		}
+		fileOutputStream.flush();
+		fileOutputStream.close();
+	}
+	public boolean getExcelFileToRead(String sheetName) throws Exception
+	{
+		this.fileInputStream = new FileInputStream(filePath + fileName);
+		this.workbook = new HSSFWorkbook(this.fileInputStream);
+		this.sheet = this.workbook.getSheet(sheetName);
+		this.row = this.sheet.getRow(this.cur_row);
+		if (this.row != null)
+		{
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+	public void moveExcelFile() throws Exception
+	{
+		
+		File file = null;
+		this.fileOutputStream = null;
+		file = new File(SysSetting.TEMP_LOCAL_PATH + "\\" + formFile.getFileName());
+		if (file.exists())
+			file.delete();
+		file.createNewFile();
+		fileOutputStream = new FileOutputStream(file);
+		fileOutputStream.write(formFile.getFileData());
+		fileOutputStream.close();
+	}
+	
+	public String moveExcelFileToCustomPath(String Path) throws Exception
+	{
+		 File files = new File(Path);
+	        if (!files.exists()) {
+	            files.mkdirs();       
+	        }
+		String newFileName=General.getNewFileName()+formFile.getFileName();
+		
+		File file = null;
+		this.fileOutputStream = null;
+		file = new File(Path+newFileName);
+		if (file.exists())
+			file.delete();
+		file.createNewFile();
+		fileOutputStream = new FileOutputStream(file);
+		fileOutputStream.write(formFile.getFileData());
+		fileOutputStream.close();
+		
+	return newFileName;
+	}
+	
+	public boolean nextRow()
+	{
+		boolean isNextRowExist = false;
+		this.cur_row++;
+		this.row = this.sheet.getRow(this.cur_row);
+		if (this.row != null)
+		{
+			isNextRowExist = true;
+		}
+		return isNextRowExist;
+	}
+
+	public void clear()
+	{
+		if (this.fileInputStream != null)
+		{
+			try
+			{
+				this.fileInputStream.close();
+			}
+			catch (Exception e)
+			{
+				LogWriter.logError("ReportBase :: closing File :: " + e.getMessage());
+			}
+			this.fileInputStream = null;
+		}
+
+		this.cell = null;
+		this.row = null;
+		this.sheet = null;
+		this.workbook = null;
+	}
+	//Daxa
+	protected HSSFFont	     itemHeaderFontforvalue	                                                               = null;
+	protected HSSFCellStyle	 ItemHeaderCellStyleOrange	                                                       = null;
+	protected HSSFCellStyle	 ItemHeaderCellStyleSkyBlue	                                                       = null;
+	protected HSSFCellStyle	 valueRightAlignStyleForSection	                                                       = null;
+	protected HSSFCellStyle	 ItemHeaderCellStyleWhite	                                                       = null;
+	protected CellStyle	 valueRightAlignStyleForSection1	                                                       = null;
+	protected CellStyle	 ItemHeaderCellStyleOrange1	                                                       = null;
+	protected CellStyle	 ItemHeaderCellStyleSkyBlue1	                                                       = null;
+	protected Font	     itemHeaderFontforvalue1	                                                               = null;
+	protected CellStyle	 ItemHeaderCellStyleWhite1	                                                       = null;
+	protected XSSFCellStyle	 xssfValueRightAlignStyleForSection	                                                       = null;
+	protected XSSFCellStyle	 xssfItemHeaderCellStyleOrange	                                                       = null;
+	protected XSSFCellStyle	 xssfItemHeaderCellStyleSkyBlue	                                                       = null;
+	protected XSSFFont	     xssfitemHeaderFontforvalue	                                                               = null;
+	protected XSSFCellStyle	 xssfItemHeaderCellStyleWhite	                                                       = null;
+}
