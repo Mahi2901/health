@@ -1,0 +1,1897 @@
+package com.hdg.util.fileUpload;
+
+import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintWriter;
+import java.net.URISyntaxException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.ResourceBundle;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
+import javax.servlet.ServletOutputStream;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.jsp.PageContext;
+
+import org.apache.http.entity.FileEntity;
+import org.apache.struts.action.ActionForm;
+import org.apache.struts.action.ActionMapping;
+import org.apache.struts.upload.FormFile;
+
+import com.hdg.client.entry.EntryBase;
+import com.hdg.client.entry.FileEntry;
+import com.hdg.client.exception.bll.BLLException;
+import com.hdg.client.vo.event.ContractAnswerFileVO;
+import com.hdg.common.SysSetting;
+import com.hdg.constant.ExceptionConst;
+import com.hdg.util.Function;
+import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.storage.file.CloudFileClient;
+import com.microsoft.azure.storage.file.CloudFileShare;
+import com.netx.General;
+
+public class ActionSupporter
+{
+	private String					key;
+	private byte					errorNumberForUpload	= 0;																		// 0- No error , 1- Extension Not Allowed , 2- ,3- ,4- ,5- ,6- IOException, 7- 
+	FileVO							fileVO;
+	private FileUploadCollection	fileUploadCollection	= null;
+	PageContext						pageContext;
+	private int						savedFiles_size			= 0;
+	private int						uploadedFiles_size		= 0;
+	public static String			restrictedExtentions[]	= new String[] { "exe", "pif", "eml", "dll", "com", "sys", "scr", "bat" };
+	public String					allowExtensions[]		= null;
+	public static String getRestrictedExtentions(ResourceBundle resourceBundle)
+	{
+		String data = "";
+		int index = 0;
+		for (int i = 0; i < restrictedExtentions.length; i++)
+		{
+			data += Function.getMessage(resourceBundle, restrictedExtentions[i]) + " , ";
+		}
+		index = data.lastIndexOf(",");
+		data = data.substring(0, index);
+
+		return data;
+	}
+	public static boolean allowExtention(String extension)
+	{
+		extension = extension.toLowerCase();
+		for (int i = 0; i < restrictedExtentions.length; i++)
+		{
+			if (restrictedExtentions[i].equals(extension))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+	public boolean fixedExtentionOnly(String extension)
+	{
+		return this.fixedExtentionOnly(extension, this.allowExtensions);
+	}
+	public static boolean fixedExtentionOnly(String extension, String allowExtensions[])
+	{
+		boolean isValid = false;
+		extension = extension.toLowerCase();
+		for (int i = 0; i < allowExtensions.length; i++)
+		{
+			if (allowExtensions[i].equalsIgnoreCase(extension))
+			{
+				isValid = true;
+				break;
+			}
+		}
+		return isValid;
+	}
+	public static void throwIfBLLException(byte err_No, Object object) throws BLLException
+	{
+
+		switch (err_No)
+		{
+			case 1:
+				// Extension not allowed
+				throw new BLLException(object, ExceptionConst.EXTENSION_NOT_ALLOWED);
+			case 2:
+				throw new BLLException(object, ExceptionConst.FILENAME_NOT_FOUND);
+			case 3:
+				throw new BLLException(object, ExceptionConst.DESCRIPTION_NOT_FOUND);
+			case 4:
+				throw new BLLException(object, ExceptionConst.ALLOWED_HTML_FILEEXTENSIONS_ONLY);
+			case 5:
+				throw new BLLException(object, ExceptionConst.ALLOWED_HTML_TEXT_FILEEXTENSIONS_ONLY);
+			case 6:
+				//IOException
+				throw new BLLException(object, ExceptionConst.FILE_SERVER_ERROR);
+			default:
+				break;
+		}
+	}
+
+	public static String getActionButtonLink(String viewAction, String viewCaption, String deleteCaption, String row, String key, String fileName, String tableContainerID, String isSavedFile, String divName)
+	{
+		if (divName == null)
+		{
+			divName = "FileUpload_" + key;
+		}
+		//function commonDeleteFile(row,key,isSavedFile,wCONTEXT,divID) {
+		String data = "<a href=\"" + viewAction + "&row=" + row + "&key=" + key + "\" >" + viewCaption + "</a>&nbsp;|&nbsp;" + "<a href=# onclick=\"commonDeleteFile(" + row + ",'" + key + "',0" + isSavedFile + ",'" + SysSetting.CONTEXT + "','" + divName + "');return false;\">" + deleteCaption + "</a>";
+		return data;
+	}
+	public static String getActionButtonLinkForCF(String viewAction, String viewCaption, String deleteCaption, String row, String key, String fileName, String tableContainerID, String isSavedFile, String divName)
+	{
+		if (divName == null)
+		{
+			divName = "FileUpload_" + key;
+		}
+		String data = "<a href=\"#\" class=\"delete\" title=\"Delete\" onclick=\"commonDeleteFile(" + row + ",'" + key + "',0" + isSavedFile + ",'" + SysSetting.CONTEXT + "','" + divName + "');return false;\">&nbsp;</a>";
+		//function commonDeleteFile(row,key,isSavedFile,wCONTEXT,divID) {
+		//String data = "<a href=\"" + viewAction + "&row=" + row + "&key=" + key + "\" >" + viewCaption + "</a>&nbsp;|&nbsp;" + "<a href=# onclick=\"commonDeleteFile(" + row + ",'" + key + "',0" + isSavedFile + ",'" + SysSetting.CONTEXT + "','" + divName + "');return false;\">" + deleteCaption + "</a>";
+		return data;
+	}
+	public static String getActionButtonLink(long row, String fileName, String tableContainerID)
+	{
+		String data = "<a href=\"" + SysSetting.CONTEXT + "/manageProject.do?action=reqTempUplodedFile&row=" + row + "\" >View3</a>" + "&nbsp;|&nbsp;" + "<a href=# onclick=\"generalFileDelete(" + row + ");return false;\">Delete</a>";
+		//String data = "<a href=\"" + SysSetting.CONTEXT + "/manageProject.do?action=reqTempUplodedFile" + "&row=" + row + "&key=" + "" + "\" >" + "View0" + "</a>&nbsp;|&nbsp;" + "<a href=# onclick=\"commonDeleteFile(" + row + ",'" + "" + "',0" + "1" + ",'" + SysSetting.CONTEXT + "','" + "myrefdel" + "');return false;\">" + "Delete0" + "</a>";
+		return data;
+	}
+
+	public static String getActionButtonLink_TermsNCondition(long row, String fileName, String tableContainerID)
+	{
+		String data = "<a href=\"" + SysSetting.CONTEXT + "/manageRFQDetailsFile.do?action=reqTempTnCUplodedFile&row=" + row + "\" >View1</a>" + "&nbsp;|&nbsp;" + "<a href=# onclick=\"TermsConditionFileDelete(" + row + ");return false;\">Delete</a>";
+		return data;
+	}
+
+	public static String getActionButtonLink_RFITermsNCondition(long row, String fileName, String tableContainerID)
+	{
+		String data = "<a href=\"" + SysSetting.CONTEXT + "/manageRFQDetailsFile.do?action=reqTempRFITermsAndConditionUplodedFile&row=" + row + "\" >View1</a>" + "&nbsp;|&nbsp;" + "<a href=# onclick=\"TermsConditionFileDelete(" + row + ");return false;\">Delete</a>";
+		return data;
+	}
+	public static String getActionButtonLink_RFITermsNCondition(long row, String fileName, String tableContainerID, ResourceBundle resourceBundle)
+	{
+		//String data = "<a href=\"" + SysSetting.CONTEXT + "/manageRFQDetailsFile.do?action=reqTempRFITermsAndConditionUplodedFile&row=" + row + "\" >" + General.getMessage(resourceBundle, "View") + "</a>" + "&nbsp;|&nbsp;" + "<a href=# onclick=\"TermsConditionFileDelete(" + row + ")\">" + General.getMessage(resourceBundle, "Delete") + "</a>";
+		//String data = "<a href=\"" + SysSetting.CONTEXT + "/manageRFQDetailsFile.do?action=reqTempRFITermsAndConditionUplodedFile&row=" + row + "\" class=\"view\"></a><a href=# onclick=\"TermsConditionFileDelete(" + row + ")\" class=\"delete_b\"></a>";
+		String data = "<a href=# onclick=\"TermsConditionFileDelete(" + row + ");return false;\" class=\"delete_b\"></a>";
+		return data;
+	}
+
+	public static String getActionButtonLink_RFISpecification(long row, String fileName, String tableContainerID)
+	{
+		String data = "<a href=\"" + SysSetting.CONTEXT + "/manageRFQDetailsFile.do?action=reqTempRFISpecificationUplodedFile&row=" + row + "\" >View1</a>" + "&nbsp;|&nbsp;" + "<a href=# onclick=\"generalFileDelete(" + row + ");return false;\">Delete</a>";
+		return data;
+	}
+	public static String getActionButtonLink_RFISpecification(long row, String fileName, String tableContainerID, ResourceBundle resourceBundle)
+	{
+		//String data = "<a href=\"" + SysSetting.CONTEXT + "/manageRFQDetailsFile.do?action=reqTempRFISpecificationUplodedFile&row=" + row + "\" >" + General.getMessage(resourceBundle, "View") + "</a>" + "&nbsp;|&nbsp;" + "<a href=# onclick=\"generalFileDelete(" + row + ")\">" + General.getMessage(resourceBundle, "Delete") + "</a>";
+		//String data = "<a href=\"" + SysSetting.CONTEXT + "/manageRFQDetailsFile.do?action=reqTempRFISpecificationUplodedFile&row=" + row + "\" class=\"view\" ></a><a href=# onclick=\"generalFileDelete(" + row + ")\" class=\"delete_b\"></a>";
+		String data = "<a href=# onclick=\"generalFileDelete(" + row + ");return false;\" class=\"delete_b\"></a>";
+		return data;
+	}
+
+	public static String getActionButtonLink_RFPTermsNCondition(long row, String fileName, String tableContainerID)
+	{
+		String data = "<a href=\"" + SysSetting.CONTEXT + "/manageRFQDetailsFile.do?action=reqTempRFPTermsAndConditionUplodedFile&row=" + row + "\" >View1</a>" + "&nbsp;|&nbsp;" + "<a href=# onclick=\"TermsConditionFileDelete(" + row + ");return false;\">Delete</a>";
+		return data;
+	}
+	public static String getActionButtonLink_RFPTermsNCondition(long row, String fileName, String tableContainerID, ResourceBundle resourceBundle)
+	{
+		String data = "<a href=\"" + SysSetting.CONTEXT + "/manageRFQDetailsFile.do?action=reqTempRFPTermsAndConditionUplodedFile&row=" + row + "\" >" + General.getMessage(resourceBundle, "View") + "</a>" + "&nbsp;|&nbsp;" + "<a href=# onclick=\"TermsConditionFileDelete(" + row + ");return false;\">" + General.getMessage(resourceBundle, "Delete") + "</a>";
+		return data;
+	}
+
+	public static String getActionButtonLink_RFPSpecification(long row, String fileName, String tableContainerID)
+	{
+		String data = "<a href=\"" + SysSetting.CONTEXT + "/manageRFQDetailsFile.do?action=reqTempRFPSpecificationUplodedFile&row=" + row + "\" >View1</a>" + "&nbsp;|&nbsp;" + "<a href=# onclick=\"generalFileDelete(" + row + ");return false;\">Delete</a>";
+		return data;
+	}
+	public static String getActionButtonLink_RFPSpecification(long row, String fileName, String tableContainerID, ResourceBundle resourceBundle)
+	{
+		String data = "<a href=\"" + SysSetting.CONTEXT + "/manageRFQDetailsFile.do?action=reqTempRFPSpecificationUplodedFile&row=" + row + "\" >" + General.getMessage(resourceBundle, "View") + "</a>" + "&nbsp;|&nbsp;" + "<a href=# onclick=\"generalFileDelete(" + row + ");return false;\">" + General.getMessage(resourceBundle, "Delete") + "</a>";
+		return data;
+	}
+
+	public static String getActionButtonLink_TermsNCondition(long row, String fileName, String tableContainerID, ResourceBundle resourceBundle)
+	{
+		String data = "<a  title=\"View\" class=\"view\"  href=\"" + SysSetting.CONTEXT + "/manageRFQDetailsFile.do?action=reqTempTnCUplodedFile&row=" + row + "\" >&nbsp;</a><a href=#  title=\"Delete\" class=\"delete_b\"  onclick=\"TermsConditionFileDelete(" + row + ");return false;\">&nbsp;</a>";
+		return data;
+	}
+	public static String getActionButtonLink_Instruction(long row, String fileName, String tableContainerID)
+	{
+		String data = "<a title=\"View\" class=\"view\"  href=\"" + SysSetting.CONTEXT + "/manageRFQDetailsFile.do?action=reqTempInsUplodedFile&row=" + row + "\" >&nbsp;</a><a href=# title=\"Delete\" class=\"delete_b\" onclick=\"InstructionFileDelete(" + row + ");return false;\">&nbsp;</a>";
+		return data;
+	}
+	public static String getActionButtonLink_Instruction(long row, String fileName, String tableContainerID, ResourceBundle resourceBundle)
+	{
+		String data = "<a title=\"View\" class=\"view\"  href=\"" + SysSetting.CONTEXT + "/manageRFQDetailsFile.do?action=reqTempInsUplodedFile&row=" + row + "\" >&nbsp;</a><a href=# title=\"Delete\" class=\"delete_b\" onclick=\"InstructionFileDelete(" + row + ")\">&nbsp;</a>";
+		return data;
+	}
+	public static String getActionButtonLink_LotItemImage(long row, String fileName, String tableContainerID, ResourceBundle resourceBundle)
+	{
+		String data = "<a href=# onclick=\"rfqLotItemImagesDelete(" + row + ")\">" + General.getMessage(resourceBundle, "Delete") + "</a>";
+		return data;
+	}
+	public static String getActionButtonLink(long row, String fileName, String tableContainerID, ResourceBundle resourceBundle)
+	{
+		String data = "<a href=\"" + SysSetting.CONTEXT + "/manageProject.do?action=reqTempUplodedFile&row=" + row + "\" >" + General.getMessage(resourceBundle, "View") + "</a>" + "&nbsp;|&nbsp;" + "<a href=# onclick=\"generalFileDelete(" + row + ");return false;\">" + General.getMessage(resourceBundle, "Delete") + "</a>";
+		return data;
+	}
+	public static String getActionButtonLink_1(String action, long row, String key, String fileName, String tableContainerID)
+	{
+		String data = "<a href=\"" + action + "&row=" + row + "&key=" + key + "\" >View4</a>" + "&nbsp;|&nbsp;" + "<a href=# onclick=\"tempFileDeleteForRFIAnswer(" + row + ",'" + key + "')\">Delete</a>";
+		return data;
+	}
+	public static String getActionButtonLink_1(String action, long row, String key, String fileName, String tableContainerID, ResourceBundle resourceBundle)
+	{
+		//old
+		//String data = "<a href=\"" + action + "&row=" + row + "&key=" + key + "\" >" + General.getMessage(resourceBundle, "View") + "</a>" + "&nbsp;|&nbsp;" + "<a href=# onclick=\"tempFileDeleteForRFIAnswer(" + row + ",'" + key + "')\">" + General.getMessage(resourceBundle, "Delete") + "</a>";
+		//new
+		String data = "<a href=# class=\"delete_b\" title=\"Delete\" onclick=\"tempFileDeleteForRFIAnswer(" + row + ",'" + key + "')\">&nbsp;</a>";
+		return data;
+	}
+	public static String getActionButtonLink_1ForViewOnly(String action, long row, String key, String fileName, String tableContainerID, ResourceBundle resourceBundle)
+	{
+		String data = "<a href=\"" + action + "&row=" + row + "&key=" + key + "\" class=\"view\" title=\"View\"></a>";
+		return data;
+	}
+	public static String getActionButtonLink_1_RFP(String action, long row, String key, String fileName, String tableContainerID, ResourceBundle resourceBundle)
+	{
+		String data = "<a href=\"" + action + "&row=" + row + "&key=" + key + "\" >" + General.getMessage(resourceBundle, "View") + "</a>" + "&nbsp;|&nbsp;" + "<a href=# onclick=\"tempFileDeleteForRFPAnswer(" + row + ",'" + key + "')\">" + General.getMessage(resourceBundle, "Delete") + "</a>";
+		return data;
+	}
+	public static String getActionButtonLink_1_RFPForViewOnly(String action, long row, String key, String fileName, String tableContainerID, ResourceBundle resourceBundle)
+	{
+		String data = "<a href=\"" + action + "&row=" + row + "&key=" + key + "\" >" + General.getMessage(resourceBundle, "View") + "</a>";
+		return data;
+	}
+	public static String getActionButtonLink_2(String action, String delMethod, long row, String questionID, String fileName, String tableContainerID, ResourceBundle resourceBundle)
+	{
+		//String data = "<a href=# onclick=\"" + delMethod + "(" + row + "," + questionID + ")\" class=\"delete_b\"></a>";
+		String data = "<a href=# onclick=\"" + delMethod + "(" + row + "," + questionID + ")\" class=\"delete_b\"></a>";
+		return data;
+	}
+
+	public ActionSupporter(ActionForm form, String key, HttpServletRequest request)
+	{
+		this.key = key;
+		getFilesFromSession(request);
+		fileVO = (FileVO) form;
+	}
+	public ActionSupporter(ActionForm form, HttpServletRequest request)
+	{
+		this.key = "uploadFile";
+		getFilesFromSession(request);
+		fileVO = (FileVO) form;
+	}
+	public ActionSupporter(HttpServletRequest request)
+	{
+		this.key = "uploadFile";
+		getFilesFromSession(request);
+	}
+	public ActionSupporter(String key, HttpServletRequest request)
+	{
+		this.key = key;
+		getFilesFromSession(request);
+	}
+	public ActionSupporter(String key, HttpServletRequest request, ArrayList savedFilesFromDataBase)
+	{
+		this.key = key;
+		getFilesFromSession(request);
+		setSavedFileArrayList(request, savedFilesFromDataBase);
+	}
+	//public String
+	public byte addFile(ActionMapping mapping, ActionForm form, HttpServletRequest request, HttpServletResponse response)
+	{
+		FormFile formFile = fileVO.getFormFile();
+		String ext;
+		if (fileVO.getFormFile() != null)
+		{
+			if (fileVO.getFormFile().getFileName().equals(""))
+				return 2;
+		}
+		else
+		{
+			return 2;
+		}
+		if (formFile.getFileName().indexOf(".") <= 0)
+		{
+			ext = "";
+		}
+		else
+		{
+			ext = formFile.getFileName().substring(formFile.getFileName().lastIndexOf('.') + 1);
+		}
+		if (!allowExtention(ext))
+		{
+			return 1;
+		}
+		if (this.allowExtensions != null)
+		{
+			if (!fixedExtentionOnly(ext))
+			{
+				return 4;
+			}
+		}
+		try
+		{
+			if (fileVO != null && !fileVO.getFormFile().toString().trim().equals(""))
+			{
+				fileVO.setUserFileName(formFile.getFileName());
+				//fileVO.setDescription()
+				String fileExtension = formFile.getFileName().substring(formFile.getFileName().lastIndexOf('.') + 1);
+				fileVO.setFileName(General.getNewFileName() + "." + fileExtension);
+
+				//this.setUploadedFiles((ArrayList<FileVO>)request.getSession().getAttribute("uploadedFiles"));
+
+				//if no any file is uploaded
+				if (this.fileUploadCollection.getUploadedFiles() == null)
+					this.fileUploadCollection.setUploadedFiles(new ArrayList<FileVO>());
+
+				fileVO.setRow(this.fileUploadCollection.getUploadedFiles().size() + 1);
+				this.fileUploadCollection.getUploadedFiles().add(fileVO);
+
+				//request.getSession().setAttribute("uploadedFiles", this.fileUploadCollection.uploadedFiles);
+				this.setFilesToSession(request);
+
+				fileVO.setList(this.fileUploadCollection.getUploadedFiles());
+			}
+			fileVO.setSavedFiles(this.fileUploadCollection.getSavedFiles());//for modify case only
+			fileVO.setFileVOStatus(FileVO.FILE_UPLOADED_AND_SET_TO_SESSION);
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return 6;
+		}
+		return 0;
+	}
+	public byte addFileRFQLotItemFile(String basePath, String prefix, String thumbPrefix, ActionMapping mapping, ActionForm form, HttpServletRequest request, HttpServletResponse response)
+	{
+		FormFile formFile = fileVO.getFormFile();
+		String ext;
+		if (fileVO.getFormFile().getFileName().equals(""))
+			return 2;
+		if (formFile.getFileName().indexOf(".") <= 0)
+		{
+			ext = "";
+		}
+		else
+		{
+			ext = formFile.getFileName().substring(formFile.getFileName().lastIndexOf('.') + 1);
+		}
+		if (!allowExtention(ext))
+		{
+			return 1;
+		}
+		if (this.allowExtensions != null)
+		{
+			if (!fixedExtentionOnly(ext))
+			{
+				return 4;
+			}
+		}
+		try
+		{
+			if (fileVO != null && !fileVO.getFormFile().toString().trim().equals(""))
+			{
+				fileVO.setUserFileName(formFile.getFileName());
+
+				String fileExtension = formFile.getFileName().substring(formFile.getFileName().lastIndexOf('.') + 1);
+				fileVO.setFileName(General.getNewFileName() + "." + fileExtension);
+
+				if (SysSetting.AZURE_STORAGE_FLAG)
+				{
+					AzureFile azureFile = new AzureFile();
+					azureFile.copyFile(fileVO.getFormFile().getInputStream(), fileVO.getFormFile().getFileSize(), basePath, fileVO.getFileName());
+				}
+				else
+				{
+					File file;
+					FileOutputStream fileOutputStream;
+					if (!(new File(basePath).exists()))
+					{
+						boolean st = new File(basePath).mkdirs();
+					}
+
+					file = new File(basePath + "\\" + prefix + fileVO.getFileName());
+					if (!(file.exists()))
+					{
+						file.createNewFile();
+						fileOutputStream = new FileOutputStream(file);
+						//int i=fileVO.getFormFile().getFileSize();
+						fileOutputStream.write(fileVO.getFormFile().getFileData());
+					}
+					else
+					{
+						return -1;
+					}
+					file.exists();
+				}
+				Runtime rt = Runtime.getRuntime();
+				Process proc = rt.exec(SysSetting.IMAGEMAGICK_INSTALLATION_DIRECTORY + "\\convert.exe -define jpeg " + basePath + "/" + prefix + fileVO.getFileName() + " -thumbnail 90x75 " + basePath + "/" + thumbPrefix + fileVO.getFileName());
+				proc.waitFor();
+				proc.destroy();
+				/*if (thumbPrefix != null)
+				 {
+				 file = new File(basePath + "\\" + thumbPrefix + fileVO.getFileName());
+				 if (!(file.exists()))
+				 {
+				 file.createNewFile();
+				 fileOutputStream = new FileOutputStream(file);
+				 //int i=fileVO.getFormFile().getFileSize();
+				 fileOutputStream.write(fileVO.getFormFile().getFileData());
+				 }						
+				 }	*/
+
+				//this.setUploadedFiles((ArrayList<FileVO>)request.getSession().getAttribute("uploadedFiles"));
+				//if no any file is uploaded
+
+				if (this.fileUploadCollection.getUploadedFiles() == null)
+					this.fileUploadCollection.setUploadedFiles(new ArrayList<FileVO>());
+
+				fileVO.setRow(this.fileUploadCollection.getUploadedFiles().size() + 1);
+				this.fileUploadCollection.getUploadedFiles().add(fileVO);
+
+				//request.getSession().setAttribute("uploadedFiles", this.fileUploadCollection.uploadedFiles);
+				this.setFilesToSession(request);
+
+				fileVO.setList(this.fileUploadCollection.getUploadedFiles());
+
+				// Move to Azure
+				if (SysSetting.AZURE_STORAGE_FLAG)
+				{
+					File file = new File(basePath + "\\" + prefix + fileVO.getFileName());
+					AzureBlob azureBlob = new AzureBlob();
+					azureBlob.copyFile(file, SysSetting.PHYSICAL_PATH_FOR_IMAGEFILE, fileVO.getFileName());
+
+					System.out.println("----fileVO.getFileName()----getFileName->>" + fileVO.getFileName());
+
+					File thumb_file = new File(basePath + "\\thumb_" + prefix + fileVO.getFileName());
+					azureBlob.copyFile(thumb_file, SysSetting.PHYSICAL_PATH_FOR_IMAGEFILE, "thumb_" + fileVO.getFileName());
+				}
+			}
+			fileVO.setSavedFiles(this.fileUploadCollection.getSavedFiles());//for modify case only
+			fileVO.setFileVOStatus(FileVO.FILE_UPLOADED_AND_SET_TO_SESSION);
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return 6;
+		}
+		return 0;
+	}
+
+	public byte mainUserCheckFileExtensions(ActionMapping mapping, ActionForm form, HttpServletRequest request, HttpServletResponse response)
+	{
+		FormFile formFile = fileVO.getFormFile();
+		String ext;
+		if (fileVO.getFormFile().getFileName().equals(""))
+			return 2;
+		if (formFile.getFileName().indexOf(".") <= 0)
+		{
+			ext = "";
+		}
+		else
+		{
+			ext = formFile.getFileName().substring(formFile.getFileName().lastIndexOf('.') + 1);
+		}
+		if (!allowExtention(ext))
+		{
+			return 1;
+		}
+		if (this.allowExtensions != null)
+		{
+			if (!fixedExtentionOnly(ext))
+			{
+				return 5;
+			}
+		}
+		return 0;
+	}
+
+	public ArrayList setSavedFileArrayList(HttpServletRequest request, ArrayList savedFiles)
+	{
+		if (savedFiles != null)
+		{
+			this.setSavedFiles(savedFiles);
+			//request.getSession().setAttribute("savedFiles", this.fileUploadCollection.savedFiles);
+			this.setFilesToSession(request);
+		}
+		return this.fileUploadCollection.getSavedFiles();
+	}
+	public void setNewFilesArrayList(HttpServletRequest request, ArrayList savedFiles, ArrayList tempUploadedFiles)
+	{
+		this.setSavedFiles(savedFiles);
+		this.setUploadedFiles(tempUploadedFiles);
+		this.setFilesToSession(request);
+	}
+	public void removeTempUploadedFile(HttpServletRequest request, ArrayList tempUploadedFiles)
+	{
+		this.setUploadedFiles(tempUploadedFiles);
+		this.setFilesToSession(request);
+	}
+	public byte moveAzureFile(int index, String basePath)
+	{
+		try
+		{
+			if (this.fileUploadCollection.getUploadedFiles() != null)
+			{
+				FileVO fileVO;
+				fileVO = this.fileUploadCollection.getUploadedFiles().get(index);
+
+				AzureFile azureFile = new AzureFile();
+				azureFile.copyFile(fileVO.getFormFile().getInputStream(), fileVO.getFormFile().getFileSize(), basePath, fileVO.getFileName());
+
+				/*if (!(new File(basePath).exists()))
+				{
+					boolean st = new File(basePath).mkdirs();
+				}
+				file = new File(basePath + "\\" + fileVO.getFileName());
+				if (!(file.exists()))
+				{
+					file.createNewFile();
+					fileOutputStream = new FileOutputStream(file);
+					//int i=fileVO.getFormFile().getFileSize();
+					fileOutputStream.write(fileVO.getFormFile().getFileData());
+				}
+				else
+				{
+					return -1;
+				}*/
+			}
+			else
+			{
+				return -1;
+			}
+			return 0;
+		}
+		catch (Exception exception)
+		{
+			exception.printStackTrace();
+			return 6;
+		}
+	}
+	public byte moveFileForMessagesupport(int index, String basePath, long companyUserID, long eventID)
+	{
+		try
+		{
+			if (SysSetting.AZURE_STORAGE_FLAG)
+			{
+				if (this.fileUploadCollection.getUploadedFiles() != null)
+				{
+					FileVO fileVO;
+					fileVO = this.fileUploadCollection.getUploadedFiles().get(index);
+
+					AzureFile azureFile = new AzureFile();
+					azureFile.copyFile(fileVO.getFormFile().getInputStream(), fileVO.getFormFile().getFileSize(), basePath, eventID + "_" + companyUserID + "_" + fileVO.getFileName());
+
+					/*if (!(new File(basePath).exists()))
+					{
+						boolean st = new File(basePath).mkdirs();
+					}
+					file = new File(basePath + "\\" + fileVO.getFileName());
+					if (!(file.exists()))
+					{
+						file.createNewFile();
+						fileOutputStream = new FileOutputStream(file);
+						//int i=fileVO.getFormFile().getFileSize();
+						fileOutputStream.write(fileVO.getFormFile().getFileData());
+					}
+					else
+					{
+						return -1;
+					}*/
+				}
+				else
+				{
+					return -1;
+				}
+			}
+			else
+			{
+				if (this.fileUploadCollection.getUploadedFiles() != null)
+				{
+					FileVO fileVO;
+					File file;
+					FileOutputStream fileOutputStream;
+					fileVO = this.fileUploadCollection.getUploadedFiles().get(index);
+
+					if (!(new File(basePath).exists()))
+					{
+						boolean st = new File(basePath).mkdirs();
+					}
+					file = new File(basePath + "\\" + eventID + "_" + companyUserID + "_" + fileVO.getFileName());
+
+					if (!(file.exists()))
+					{
+						file.createNewFile();
+						fileOutputStream = new FileOutputStream(file);
+						//int i=fileVO.getFormFile().getFileSize();
+						fileOutputStream.write(fileVO.getFormFile().getFileData());
+					}
+					else
+					{
+						return -1;
+					}
+				}
+				else
+				{
+					return -1;
+				}
+			}
+			return 0;
+		}
+		catch (Exception ioException)
+		{
+			ioException.printStackTrace();
+			return 6;
+		}
+	}
+
+	public byte moveFile(int index, String basePath)
+	{
+		try
+		{
+			if (SysSetting.AZURE_STORAGE_FLAG)
+			{
+				if (this.fileUploadCollection.getUploadedFiles() != null)
+				{
+					FileVO fileVO;
+					fileVO = this.fileUploadCollection.getUploadedFiles().get(index);
+
+					AzureFile azureFile = new AzureFile();
+					azureFile.copyFile(fileVO.getFormFile().getInputStream(), fileVO.getFormFile().getFileSize(), basePath, fileVO.getFileName());
+
+					/*if (!(new File(basePath).exists()))
+					{
+						boolean st = new File(basePath).mkdirs();
+					}
+					file = new File(basePath + "\\" + fileVO.getFileName());
+					if (!(file.exists()))
+					{
+						file.createNewFile();
+						fileOutputStream = new FileOutputStream(file);
+						//int i=fileVO.getFormFile().getFileSize();
+						fileOutputStream.write(fileVO.getFormFile().getFileData());
+					}
+					else
+					{
+						return -1;
+					}*/
+				}
+				else
+				{
+					return -1;
+				}
+			}
+			else
+			{
+				if (this.fileUploadCollection.getUploadedFiles() != null)
+				{
+					FileVO fileVO;
+					File file;
+					FileOutputStream fileOutputStream;
+					fileVO = this.fileUploadCollection.getUploadedFiles().get(index);
+
+					if (!(new File(basePath).exists()))
+					{
+						boolean st = new File(basePath).mkdirs();
+					}
+					file = new File(basePath + "\\" + fileVO.getFileName());
+					if (!(file.exists()))
+					{
+						file.createNewFile();
+						fileOutputStream = new FileOutputStream(file);
+						//int i=fileVO.getFormFile().getFileSize();
+						fileOutputStream.write(fileVO.getFormFile().getFileData());
+					}
+					else
+					{
+						return -1;
+					}
+				}
+				else
+				{
+					return -1;
+				}
+			}
+			return 0;
+		}
+		catch (Exception ioException)
+		{
+			ioException.printStackTrace();
+			return 6;
+		}
+	}
+	/***************/
+	public byte moveCatalogItemSpecificationFile(int index, String basePath, long companyID)
+	{
+		try
+		{
+			if (SysSetting.AZURE_STORAGE_FLAG)
+			{
+				if (this.fileUploadCollection.getUploadedFiles() != null)
+				{
+					FileVO fileVO;
+					fileVO = this.fileUploadCollection.getUploadedFiles().get(index);
+
+					AzureFile azureFile = new AzureFile();
+					azureFile.copyFile(fileVO.getFormFile().getInputStream(), fileVO.getFormFile().getFileSize(), basePath, fileVO.getFileName());
+
+					/*if (!(new File(basePath).exists()))
+					{
+						boolean st = new File(basePath).mkdirs();
+					}
+					file = new File(basePath + "\\" + fileVO.getFileName());
+					if (!(file.exists()))
+					{
+						file.createNewFile();
+						fileOutputStream = new FileOutputStream(file);
+						//int i=fileVO.getFormFile().getFileSize();
+						fileOutputStream.write(fileVO.getFormFile().getFileData());
+					}
+					else
+					{
+						return -1;
+					}*/
+				}
+				else
+				{
+					return -1;
+				}
+			}
+			else
+			{
+				if (this.fileUploadCollection.getUploadedFiles() != null)
+				{
+					FileVO fileVO;
+					File file;
+					FileOutputStream fileOutputStream;
+					fileVO = this.fileUploadCollection.getUploadedFiles().get(index);
+
+					if (!(new File(basePath).exists()))
+					{
+						boolean st = new File(basePath).mkdirs();
+					}
+					file = new File(basePath + "\\" + companyID + "_" + fileVO.getFileName());
+					if (!(file.exists()))
+					{
+						file.createNewFile();
+						fileOutputStream = new FileOutputStream(file);
+						//int i=fileVO.getFormFile().getFileSize();
+						fileOutputStream.write(fileVO.getFormFile().getFileData());
+					}
+					else
+					{
+						return -1;
+					}
+				}
+				else
+				{
+					return -1;
+				}
+			}
+			return 0;
+		}
+		catch (Exception ioException)
+		{
+			ioException.printStackTrace();
+			return 6;
+		}
+	}
+	/******************/
+	public static byte uploadFile(FileVO fileVO, String basePath, String prefix, String thumPreFix, String allowExtensions[], ActionMapping mapping, HttpServletRequest request, HttpServletResponse response)
+	{
+		FormFile formFile = fileVO.getFormFile();
+		String ext;
+		if (fileVO.getFormFile().getFileName().equals(""))
+			return 2;
+		if (formFile.getFileName().indexOf(".") <= 0)
+		{
+			ext = "";
+		}
+		else
+		{
+			ext = formFile.getFileName().substring(formFile.getFileName().lastIndexOf('.') + 1);
+		}
+		if (!allowExtention(ext))
+		{
+			return 1;
+		}
+		if (allowExtensions != null)
+		{
+			if (!fixedExtentionOnly(ext, allowExtensions))
+			{
+				return 4;
+			}
+		}
+		try
+		{
+			if (fileVO != null && !fileVO.getFormFile().toString().trim().equals(""))
+			{
+				fileVO.setUserFileName(formFile.getFileName());
+				//fileVO.setDescription()
+				String fileExtension = formFile.getFileName().substring(formFile.getFileName().lastIndexOf('.') + 1);
+				fileVO.setFileName(General.getNewFileName() + "." + fileExtension);
+				//this.setUploadedFiles((ArrayList<FileVO>)request.getSession().getAttribute("uploadedFiles"));
+				try
+				{
+					File file;
+					FileOutputStream fileOutputStream;
+					if (!(new File(basePath).exists()))
+					{
+						boolean st = new File(basePath).mkdirs();
+					}
+					file = new File(basePath + "\\" + prefix + fileVO.getFileName());
+					if (!(file.exists()))
+					{
+						file.createNewFile();
+						fileOutputStream = new FileOutputStream(file);
+						//int i=fileVO.getFormFile().getFileSize();
+						fileOutputStream.write(fileVO.getFormFile().getFileData());
+					}
+					else
+					{
+						return -1;
+					}
+
+					if (thumPreFix != null)
+					{
+						//to check the file will take some time 
+						file.exists();
+						//wait one more time
+						file.exists();
+						Runtime rt = Runtime.getRuntime();
+						Process proc = rt.exec(SysSetting.IMAGEMAGICK_INSTALLATION_DIRECTORY + "\\convert.exe -define jpg " + basePath + "/" + prefix + fileVO.getFileName() + " -thumbnail 90x75 " + basePath + "/" + thumPreFix + fileVO.getFileName());
+						proc.waitFor();
+						proc.destroy();
+
+						/*file = new File(basePath + "\\" + thumPreFix + fileVO.getFileName());
+						 if (!(file.exists()))
+						 {
+						 file.createNewFile();
+						 fileOutputStream = new FileOutputStream(file);
+						 //int i=fileVO.getFormFile().getFileSize();
+						 fileOutputStream.write(fileVO.getFormFile().getFileData());
+						 }
+						 else
+						 {
+						 return -1;
+						 }*/
+					}
+
+					return 0;
+				}
+				catch (IOException ioException)
+				{
+					ioException.printStackTrace();
+					return 6;
+				}
+			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return 6;
+		}
+		return 0;
+	}
+	public static byte uploadFileWithOriginalName(FileVO fileVO, String basePath, String prefix, String thumPreFix, String allowExtensions[], ActionMapping mapping, HttpServletRequest request, HttpServletResponse response)
+	{
+		FormFile formFile = fileVO.getFormFile();
+		String ext;
+		File file;
+
+		if (fileVO.getFormFile().getFileName().equals(""))
+			return 2;
+		if (formFile.getFileName().indexOf(".") <= 0)
+		{
+			ext = "";
+		}
+		else
+		{
+			ext = formFile.getFileName().substring(formFile.getFileName().lastIndexOf('.') + 1);
+		}
+		if (!allowExtention(ext))
+		{
+			return 1;
+		}
+		if (allowExtensions != null)
+		{
+			if (!fixedExtentionOnly(ext, allowExtensions))
+			{
+				return 4;
+			}
+		}
+		try
+		{
+			if (fileVO != null && !fileVO.getFormFile().toString().trim().equals(""))
+			{
+				fileVO.setUserFileName(formFile.getFileName());
+				//fileVO.setDescription()
+				//String fileExtension = formFile.getFileName().substring(formFile.getFileName().lastIndexOf('.') + 1);
+				//fileVO.setFileName(getNewFileName() + "." + fileExtension);
+				//this.setUploadedFiles((ArrayList<FileVO>)request.getSession().getAttribute("uploadedFiles"));
+				try
+				{
+
+					FileOutputStream fileOutputStream = null;
+					if (!(new File(basePath).exists()))
+					{
+						boolean st = new File(basePath).mkdirs();
+					}
+					file = new File(basePath + "\\" + prefix + fileVO.getFileName());
+					if (!(file.exists()))
+					{
+						file.createNewFile();
+						fileOutputStream = new FileOutputStream(file);
+						//int i=fileVO.getFormFile().getFileSize();
+						fileOutputStream.write(fileVO.getFormFile().getFileData());
+						fileOutputStream.close();
+					}
+					else
+					{
+						return -1;
+					}
+
+					if (fileOutputStream != null)
+					{
+						fileOutputStream.close();
+					}
+
+					return 0;
+				}
+				catch (IOException ioException)
+				{
+					ioException.printStackTrace();
+					return 6;
+				}
+
+			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return 6;
+		}
+		return 0;
+	}
+	public static byte uploadFileAzureWithOriginalName(FileVO fileVO, String basePath, String prefix, String thumPreFix, String allowExtensions[], ActionMapping mapping, HttpServletRequest request, HttpServletResponse response)
+	{
+		FormFile formFile = fileVO.getFormFile();
+		String ext;
+		File file;
+
+		if (fileVO.getFormFile().getFileName().equals(""))
+			return 2;
+		if (formFile.getFileName().indexOf(".") <= 0)
+		{
+			ext = "";
+		}
+		else
+		{
+			ext = formFile.getFileName().substring(formFile.getFileName().lastIndexOf('.') + 1);
+		}
+		if (!allowExtention(ext))
+		{
+			return 1;
+		}
+		if (allowExtensions != null)
+		{
+			if (!fixedExtentionOnly(ext, allowExtensions))
+			{
+				return 4;
+			}
+		}
+		try
+		{
+			if (fileVO != null && !fileVO.getFormFile().toString().trim().equals(""))
+			{
+				fileVO.setUserFileName(formFile.getFileName());
+				//fileVO.setDescription()
+				//String fileExtension = formFile.getFileName().substring(formFile.getFileName().lastIndexOf('.') + 1);
+				//fileVO.setFileName(getNewFileName() + "." + fileExtension);
+				//this.setUploadedFiles((ArrayList<FileVO>)request.getSession().getAttribute("uploadedFiles"));
+				try
+				{
+					AzureFile azureFile = new AzureFile();
+					azureFile.copyFile(fileVO.getFormFile().getInputStream(), fileVO.getFormFile().getFileSize(), basePath, fileVO.getFileName());
+
+					/*FileOutputStream fileOutputStream = null;
+					if (!(new File(basePath).exists()))
+					{
+						boolean st = new File(basePath).mkdirs();
+					}
+					file = new File(basePath + "\\" + prefix + fileVO.getFileName());
+					System.out.println("basepath" + basePath);
+					System.out.println("prefix" + prefix);
+					if (!(file.exists()))
+					{
+						file.createNewFile();
+						fileOutputStream = new FileOutputStream(file);
+						//int i=fileVO.getFormFile().getFileSize();
+						fileOutputStream.write(fileVO.getFormFile().getFileData());
+						fileOutputStream.close();
+					}
+					else
+					{
+						return -1;
+					}
+					
+					if (fileOutputStream != null)
+					{
+						fileOutputStream.close();
+					}*/
+
+					return 0;
+				}
+				catch (IOException ioException)
+				{
+					ioException.printStackTrace();
+					return 6;
+				}
+
+			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return 6;
+		}
+		return 0;
+	}
+	public FileVO getFileVO(int index)
+	{
+		FileVO fileVO = null;
+		if (this.fileUploadCollection.getUploadedFiles() != null)
+		{
+			fileVO = this.fileUploadCollection.getUploadedFiles().get(index);
+		}
+		return fileVO;
+	}
+	// Method to delete file from arraylist...
+	public boolean deleteFileFromSavedArrayList(int index, HttpServletRequest request, HttpServletResponse response)
+	{
+		try
+		{
+
+			int removeAt = index - 1;
+
+			this.savedFiles_size = this.fileUploadCollection.getSavedFiles().size();
+			//<EntryBase>
+			//this.setSavedFiles((ArrayList)request.getSession().getAttribute("savedFiles"));
+
+			if (this.fileUploadCollection.getSavedFiles() != null && this.fileUploadCollection.getSavedFiles().size() > removeAt)
+			{
+				this.fileUploadCollection.getSavedFiles().remove(removeAt);
+				this.savedFiles_size = this.savedFiles_size - 1;
+			}
+			FileVO fileVO;
+			for (int i = removeAt; i < this.savedFiles_size; i++)
+			{
+				((EntryBase) this.fileUploadCollection.getSavedFiles().get(i)).setRow(((EntryBase) this.fileUploadCollection.getSavedFiles().get(i)).getRow() - 1);
+			}
+			//request.getSession().setAttribute("savedFiles", fileUploadCollection.savedFiles);
+			this.setFilesToSession(request);
+			return true;
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return false;
+		}
+	}
+	// Method to delete file from arraylist...
+	public boolean deleteFileFromSavedArrayListFromVO(int index, HttpServletRequest request, HttpServletResponse response)
+	{
+		try
+		{
+			int removeAt = index - 1;
+			this.savedFiles_size = this.fileUploadCollection.getSavedFiles().size();
+			//<EntryBase>
+			//this.setSavedFiles((ArrayList)request.getSession().getAttribute("savedFiles"));
+
+			if (this.fileUploadCollection.getSavedFiles() != null && this.fileUploadCollection.getSavedFiles().size() > removeAt)
+			{
+				this.fileUploadCollection.getSavedFiles().remove(removeAt);
+				this.savedFiles_size = this.savedFiles_size - 1;
+			}
+			for (int i = removeAt; i < this.savedFiles_size; i++)
+			{
+				((ContractAnswerFileVO) this.fileUploadCollection.getSavedFiles().get(i)).setRow(((ContractAnswerFileVO) this.fileUploadCollection.getSavedFiles().get(i)).getRow() - 1);
+			}
+			//request.getSession().setAttribute("savedFiles", fileUploadCollection.savedFiles);
+			this.setFilesToSession(request);
+			return true;
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return false;
+		}
+	}
+	/*// Method to delete file from arraylist...
+	public boolean deleteFileFromSavedArrayListFromVO(int index, HttpServletRequest request, HttpServletResponse response)
+	{
+		try
+		{
+			int removeAt = index - 1;
+			this.savedFiles_size = this.fileUploadCollection.getSavedFiles().size();
+			//<EntryBase>
+			//this.setSavedFiles((ArrayList)request.getSession().getAttribute("savedFiles"));
+	
+			if (this.fileUploadCollection.getSavedFiles() != null && this.fileUploadCollection.getSavedFiles().size() > removeAt)
+			{
+				this.fileUploadCollection.getSavedFiles().remove(removeAt);
+				this.savedFiles_size = this.savedFiles_size - 1;
+			}
+			FileVO fileVO;
+			for (int i = removeAt; i < this.savedFiles_size; i++)
+			{
+				((FileVO) this.fileUploadCollection.getSavedFiles().get(i)).setRow(((FileVO) this.fileUploadCollection.getSavedFiles().get(i)).getRow() - 1);
+			}
+			//request.getSession().setAttribute("savedFiles", fileUploadCollection.savedFiles);
+			this.setFilesToSession(request);
+			return true;
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return false;
+		}
+	}*/
+	public boolean deleteFileFromTemp(int index, HttpServletRequest request, HttpServletResponse response)
+	{
+		//this.getFilesFromSession(request);
+		try
+		{
+			int removeAt = index - 1;
+			if (this.fileUploadCollection.getUploadedFiles() == null)
+			{
+				this.uploadedFiles_size = 0;
+			}
+			else
+			{
+				this.uploadedFiles_size = this.fileUploadCollection.getUploadedFiles().size();
+			}
+			//this.setUploadedFiles((ArrayList<FileVO>)request.getSession().getAttribute("uploadedFiles"));
+			//this.setUploadedFiles(this.getAttribute(request).uploadedFiles);
+			this.fileUploadCollection.getUploadedFiles().remove(removeAt);
+			this.uploadedFiles_size = this.uploadedFiles_size - 1;
+			//FileVO fileVO;
+			for (int i = removeAt; i < this.uploadedFiles_size; i++)
+			{
+				this.fileUploadCollection.getUploadedFiles().get(i).setRow(this.fileUploadCollection.getUploadedFiles().get(i).getRow() - 1);
+
+			}
+			//request.getSession().setAttribute("uploadedFiles", fileUploadCollection.uploadedFiles);
+			this.setFilesToSession(request);
+			return true;
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return false;
+		}
+	}
+
+	public boolean deleteFileFromTemp1(int index, HttpServletRequest request, HttpServletResponse response)
+	{
+		//this.getFilesFromSession(request);
+		try
+		{
+			int removeAt = 0;//index - 1;
+			if (this.fileUploadCollection.getUploadedFiles() != null)
+			{
+				this.uploadedFiles_size = this.fileUploadCollection.getUploadedFiles().size();
+				//this.setUploadedFiles((ArrayList<FileVO>)request.getSession().getAttribute("uploadedFiles"));
+				//this.setUploadedFiles(this.getAttribute(request).uploadedFiles);
+				this.fileUploadCollection.getUploadedFiles().remove(removeAt);
+
+				this.uploadedFiles_size = this.uploadedFiles_size - 1;
+				//FileVO fileVO;
+				for (int i = removeAt; i <= this.uploadedFiles_size; i++)
+				{
+					this.fileUploadCollection.getUploadedFiles().get(i).setRow(this.fileUploadCollection.getUploadedFiles().get(i).getRow() - 1);
+
+				}
+				//request.getSession().setAttribute("uploadedFiles", fileUploadCollection.uploadedFiles);
+				this.setFilesToSession(request);
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return false;
+		}
+	}
+
+	public ArrayList<FileVO> getFileVOArrayList()
+	{
+		return this.fileUploadCollection.getUploadedFiles();
+	}
+	public Object getSavedFileObject(int index)
+	{
+		Object obj = null;
+		if (this.fileUploadCollection.getSavedFiles() != null)
+		{
+			obj = this.fileUploadCollection.getSavedFiles().get(index - 1);
+		}
+		return obj;
+	}
+	public static void getSavedUploadedFile(String path, HttpServletResponse response, String userFileName)
+	{
+
+		try
+		{
+			if (SysSetting.AZURE_STORAGE_FLAG && path != null && !path.contains("TEMP_LOCAL_PATH"))
+			{
+				AzureFile azureFile = new AzureFile();
+				azureFile.downloadFile(path.substring(0, path.lastIndexOf("\\")), path.substring(path.lastIndexOf("\\") + 1, path.length()), userFileName, response);
+			}
+			else
+			{
+				PrintWriter printWriter;
+				File file;
+				printWriter = response.getWriter();
+				file = new File(path);
+				if (file.exists())
+				{
+					response.setContentType("application/x-download");
+					response.setHeader("Content-Disposition", "attachment; filename=\"" + (new String(userFileName.getBytes(), "UTF-8")) + "\"");
+
+					FileInputStream is = new FileInputStream(file);
+					int oneChar = 0;
+					while ((oneChar = is.read()) != -1)
+					{
+						printWriter.write(oneChar);
+					}
+					printWriter.flush();
+					printWriter.close();
+					is.close();
+				}
+				else
+				{
+					//error file not found
+					throw new Exception("file not found at " + path);
+				}
+			}
+		}
+		catch (FileNotFoundException fnf)
+		{
+			fnf.printStackTrace();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+	}
+	public void getTempUploadedFile(int index, HttpServletRequest request, HttpServletResponse response)
+	{
+
+		this.getFilesFromSession(request);
+		FileVO fileVO = this.fileUploadCollection.getUploadedFiles().get(index - 1);
+		PrintWriter printWriter;
+		try
+		{
+			printWriter = response.getWriter();
+			response.setContentType("application/x-download");
+			response.setHeader("Content-Disposition", "attachment; filename=\"" + fileVO.getUserFileName() + "\"");
+
+			InputStream is = fileVO.getFormFile().getInputStream();
+			int oneChar = 0;
+			while ((oneChar = is.read()) != -1)
+			{
+				printWriter.write(oneChar);
+			}
+			printWriter.flush();
+			printWriter.close();
+
+		}
+		catch (FileNotFoundException fnf)
+		{
+			fnf.printStackTrace();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+	}
+	private static byte[] zipFiles(ArrayList<FileEntry> fileEntries) throws IOException
+	{
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		ZipOutputStream zos = new ZipOutputStream(baos);
+		byte bytes[] = new byte[2048];
+
+		for (FileEntry fileEntry : fileEntries)
+		{
+
+			FileInputStream fis = new FileInputStream(fileEntry.getFileNameWithPath());
+			BufferedInputStream bis = new BufferedInputStream(fis);
+
+			zos.putNextEntry(new ZipEntry(fileEntry.getDirPath() + "/" + fileEntry.getUserFileName()));
+
+			int bytesRead;
+			while ((bytesRead = bis.read(bytes)) != -1)
+			{
+				zos.write(bytes, 0, bytesRead);
+			}
+			zos.closeEntry();
+			bis.close();
+			fis.close();
+		}
+		zos.flush();
+		baos.flush();
+		zos.close();
+		baos.close();
+
+		return baos.toByteArray();
+	}
+	private static byte[] zipFilesAzure(ArrayList<FileEntry> fileEntries) throws IOException, StorageException, URISyntaxException, IOException
+	{
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		ZipOutputStream zos = new ZipOutputStream(baos);
+		//byte bytes[] = new byte[2048];
+
+		for (FileEntry fileEntry : fileEntries)
+		{
+
+			//FileInputStream fis = new FileInputStream(fileEntry.getFileNameWithPath());
+			//BufferedInputStream bis = new BufferedInputStream(fis);
+
+			AzureFile azureFile = new AzureFile();
+			CloudFileClient fileClient = azureFile.getFileClient();
+			CloudFileShare cloudFileShare = fileClient.getShareReference("test");//"appstorage\\c3systemsDataFile"
+			//cloudFileShare.getd
+
+			zos.putNextEntry(new ZipEntry(fileEntry.getDirPath() + "/" + fileEntry.getUserFileName()));
+
+			//int bytesRead;
+			//while ((bytesRead = bis.read(bytes)) != -1)
+			//{
+			zos.write(azureFile.getByteArray(fileEntry.getFileNameWithPath().substring(0, fileEntry.getFileNameWithPath().lastIndexOf("\\")), fileEntry.getFileName()));
+			//}
+			zos.closeEntry();
+			//bis.close();
+			//fis.close();
+		}
+		zos.flush();
+		baos.flush();
+		zos.close();
+		baos.close();
+
+		return baos.toByteArray();
+	}
+
+	public static void getDownloadZipFiles(HttpServletResponse response, String userFileName, ArrayList<FileEntry> fileEntries)
+	{
+		try
+		{
+			ServletOutputStream sos = response.getOutputStream();
+			response.setContentType("application/zip");
+			response.setHeader("Content-Disposition", "attachment; filename=\"" + userFileName + "\"");
+
+			if (SysSetting.AZURE_STORAGE_FLAG)
+				sos.write(zipFilesAzure(fileEntries));
+			else
+				sos.write(zipFiles(fileEntries));
+
+			sos.flush();
+		}
+		catch (FileNotFoundException fnf)
+		{
+			fnf.printStackTrace();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+	}
+	public String getNotDeletedFilesIDAsCommaSeperater()
+	{
+		String data = "";
+		if (this.fileUploadCollection.getSavedFiles() != null)
+		{
+			this.savedFiles_size = this.fileUploadCollection.getSavedFiles().size();
+			data = "0";
+			for (int i = 0; i < this.savedFiles_size; i++)
+			{
+				data += "," + ((EntryBase) this.fileUploadCollection.getSavedFiles().get(i)).getID();
+			}
+		}
+		return data;
+	}
+	public ArrayList getSavedFiles()
+	{
+		return this.fileUploadCollection.getSavedFiles();
+	}
+
+	public void setSavedFiles(ArrayList savedFiles)
+	{
+		if (savedFiles != null)
+		{
+			this.savedFiles_size = savedFiles.size();
+		}
+		else
+		{
+			this.savedFiles_size = 0;
+		}
+		this.fileUploadCollection.setSavedFiles(savedFiles);
+	}
+	public ArrayList<FileVO> getUploadedFiles()
+	{
+		return this.fileUploadCollection.getUploadedFiles();
+	}
+	public void removeUploadedFiles(HttpServletRequest request)
+	{
+		//request.getSession().removeAttribute("uploadedFiles");
+		this.fileUploadCollection.setUploadedFiles(null);
+		this.setFilesToSession(request);
+	}
+
+	public void setUploadedFiles(ArrayList<FileVO> uploadedFiles)
+	{
+		if (uploadedFiles != null)
+		{
+			this.uploadedFiles_size = uploadedFiles.size();
+		}
+		else
+		{
+			this.uploadedFiles_size = 0;
+		}
+		this.fileUploadCollection.setUploadedFiles(uploadedFiles);
+	}
+
+	/**
+	 * @return the key
+	 */
+	public String getKey()
+	{
+		return key;
+	}
+	/**
+	 * @param key the key to set
+	 */
+	public void setKey(String key)
+	{
+		this.key = key;
+	}
+	private void getFilesFromSession(HttpServletRequest request)
+	{
+		SessionFileUploadCollection sessionFileUploadCollection = SessionFileUploadCollection.getSessionFileUploadCollection(request.getSession());
+		this.fileUploadCollection = sessionFileUploadCollection.getFileUploadCollection(this.key);
+
+		if (this.fileUploadCollection == null)
+		{
+			this.fileUploadCollection = new FileUploadCollection();
+			this.setFilesToSession(request);
+		}
+		else
+		{}
+		//need to check
+		if (this.fileUploadCollection.getUploadedFiles() != null && this.fileUploadCollection.getUploadedFiles().size() == 0)
+		{
+			this.fileUploadCollection.setUploadedFiles(null);
+		}
+	}
+	private void setFilesToSession(HttpServletRequest request)
+	{
+		SessionFileUploadCollection sessionFileUploadCollection = SessionFileUploadCollection.getSessionFileUploadCollection(request.getSession());
+		sessionFileUploadCollection.setFileUploadCollection(this.key, this.fileUploadCollection, request.getSession());
+
+	}
+
+	public void clearSession(HttpServletRequest request)
+	{
+		SessionFileUploadCollection sessionFileUploadCollection = SessionFileUploadCollection.getSessionFileUploadCollection(request.getSession());
+		sessionFileUploadCollection.removeFileUploadCollection(key);
+	}
+	public static String getKeyValueForBidLotItemCFieldID(String rfqLotItemCFieldsID)
+	{
+		String key = "bid_cf_" + rfqLotItemCFieldsID;
+		return key;
+	}
+	public static String getKeyValueForMachinerySpec()
+	{
+
+		String key = General.FILE_UPLOAD_MACHINERY_SPEC;
+		return key;
+	}
+	public static String getKeyValueForProductSpec()
+	{
+
+		String key = General.FILE_UPLOAD_PRODUCT_SPEC;
+		return key;
+	}
+	public static String getKeyValueForRFQLotItemImages()
+	{
+
+		String key = General.FILE_UPLOAD_RFQ_LOT_ITEM_IMAGE;
+		return key;
+	}
+	public static String getKeyValueForCustomFieldFileAnswer()
+	{
+
+		String key = General.CUSTOM_ATTACH_FILE_UPLOAD;
+		return key;
+	}
+	public String[] getAllowExtensions()
+	{
+		return allowExtensions;
+	}
+	public void setAllowExtensions(String[] allowExtensions)
+	{
+		this.allowExtensions = allowExtensions;
+	}
+	public static String[] getHTMLValidExtensions()
+	{
+		return new String[] { "htm", "html", "shtml" };
+	}
+	public static String[] getHTMLTextValidExtensions()
+	{
+		return new String[] { "txt", "htm", "html", "shtml" };
+	}
+	public static String getAllowExtentions(String[] extentions)
+	{
+		String data = "";
+		int index = 0;
+		for (int i = 0; i < extentions.length; i++)
+		{
+			data += extentions[i] + " , ";
+		}
+		index = data.lastIndexOf(",");
+		data = data.substring(0, index);
+
+		return data;
+	}
+	public static boolean deleteFileNotFolder(String fileWithPath)
+	{
+		boolean isDeleted = false;
+		try
+		{
+			File file = new File(fileWithPath);
+			if (file.exists())
+			{
+				if (!file.isDirectory())
+				{
+					file.delete();
+				}
+			}
+			isDeleted = true;
+		}
+		catch (Exception e)
+		{
+			// TODO: handle exception
+			e.printStackTrace();
+		}
+		return isDeleted;
+	}
+
+	public static String getKeyValueForWelcomeTextForMainUser()
+	{
+
+		String key = General.FILE_UPLOAD_WELCOME_TEXT_MAIN_USER;
+		return key;
+	}
+	public static String getRestrictedExtentionsForUsageSet(ResourceBundle resourceBundle)
+	{
+		String data = "";
+		data += "xls";
+		return data;
+	}
+
+	/*111 File Download Start*/
+	public static void getDocumentBankDownloadFile(String path, HttpServletResponse response, String userFileName)
+	{
+
+		try
+		{
+			if (SysSetting.AZURE_STORAGE_FLAG && path != null && !path.contains("TEMP_LOCAL_PATH"))
+			{
+				AzureFile azureFile = new AzureFile();
+				azureFile.downloadFile(path.substring(0, path.lastIndexOf("\\")), path.substring(path.lastIndexOf("\\") + 1, path.length()), userFileName, response);
+			}
+			else
+			{
+				PrintWriter printWriter;
+				File file;
+				printWriter = response.getWriter();
+				file = new File(path);
+				if (file.exists())
+				{
+					response.setContentType("application/x-download");
+					response.setHeader("Content-Disposition", "attachment; filename=\"" + userFileName + "\"");
+
+					FileInputStream is = new FileInputStream(file);
+					int oneChar = 0;
+					while ((oneChar = is.read()) != -1)
+					{
+						printWriter.write(oneChar);
+					}
+					printWriter.flush();
+					printWriter.close();
+					is.close();
+				}
+				else
+				{
+					//error file not found
+					throw new Exception("file not found at " + path);
+				}
+			}
+		}
+		catch (FileNotFoundException fnf)
+		{
+			fnf.printStackTrace();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+	}
+	/*111 File Download Start*/
+
+	///////////////////////////////////// nilesh
+	public byte addFileAdminProfileFile(String basePath, String prefix, String thumbPrefix, ActionMapping mapping, ActionForm form, HttpServletRequest request, HttpServletResponse response)
+	{
+		System.out.println("----basePath--111--->>" + basePath);
+		System.out.println("----prefix--2222-->>" + prefix);
+		System.out.println("----thumbPrefix---333-->>" + thumbPrefix);
+
+		FormFile formFile = fileVO.getFormFile();
+		System.out.println("----4444444----->>" + fileVO.getFormFile());
+		System.out.println("----4444444----->>" + fileVO.getFileName());
+
+		String ext;
+		if (fileVO.getFormFile().getFileName().equals(""))
+			return 2;
+		if (formFile.getFileName().indexOf(".") <= 0)
+		{
+			ext = "";
+		}
+		else
+		{
+			ext = formFile.getFileName().substring(formFile.getFileName().lastIndexOf('.') + 1);
+		}
+
+		if (!allowExtention(ext))
+		{
+			return 1;
+		}
+
+		this.allowExtensions = new String[] { "jpeg", "jpg", "png", "bmp", "gif", "tiff" };
+		if (this.allowExtensions != null)
+		{
+			if (!fixedExtentionOnly(ext))
+			{
+				//return 4;
+				return 1;
+			}
+		}
+		try
+		{
+			if (fileVO != null && !fileVO.getFormFile().toString().trim().equals(""))
+			{
+				fileVO.setUserFileName(formFile.getFileName());
+
+				String fileExtension = formFile.getFileName().substring(formFile.getFileName().lastIndexOf('.') + 1);
+				fileVO.setFileName(General.getNewFileName() + "." + fileExtension);
+
+				if (SysSetting.AZURE_STORAGE_FLAG)
+				{
+					AzureFile azureFile = new AzureFile();
+					azureFile.copyFile(fileVO.getFormFile().getInputStream(), fileVO.getFormFile().getFileSize(), basePath, fileVO.getFileName());
+				}
+				else
+				{
+					File file;
+					FileOutputStream fileOutputStream;
+					if (!(new File(basePath).exists()))
+					{
+						boolean st = new File(basePath).mkdirs();
+					}
+
+					file = new File(basePath + "\\" + prefix + fileVO.getFileName());
+					if (!(file.exists()))
+					{
+						file.createNewFile();
+						fileOutputStream = new FileOutputStream(file);
+						//int i=fileVO.getFormFile().getFileSize();
+						fileOutputStream.write(fileVO.getFormFile().getFileData());
+					}
+					else
+					{
+						return -1;
+					}
+					file.exists();
+				}
+				Runtime rt = Runtime.getRuntime();
+				Process proc = rt.exec(SysSetting.IMAGEMAGICK_INSTALLATION_DIRECTORY + "\\convert.exe -define jpeg " + basePath + "/" + prefix + fileVO.getFileName() + " -thumbnail 90x75 " + basePath + "/" + thumbPrefix + fileVO.getFileName());
+				proc.waitFor();
+				proc.destroy();
+				/*if (thumbPrefix != null)
+				 {
+				 file = new File(basePath + "\\" + thumbPrefix + fileVO.getFileName());
+				 if (!(file.exists()))
+				 {
+				 file.createNewFile();
+				 fileOutputStream = new FileOutputStream(file);
+				 //int i=fileVO.getFormFile().getFileSize();
+				 fileOutputStream.write(fileVO.getFormFile().getFileData());
+				 }						
+				 }	*/
+
+				//this.setUploadedFiles((ArrayList<FileVO>)request.getSession().getAttribute("uploadedFiles"));
+				//if no any file is uploaded
+
+				if (this.fileUploadCollection.getUploadedFiles() == null)
+					this.fileUploadCollection.setUploadedFiles(new ArrayList<FileVO>());
+
+				fileVO.setRow(this.fileUploadCollection.getUploadedFiles().size() + 1);
+				this.fileUploadCollection.getUploadedFiles().add(fileVO);
+
+				//request.getSession().setAttribute("uploadedFiles", this.fileUploadCollection.uploadedFiles);
+				this.setFilesToSession(request);
+
+				fileVO.setList(this.fileUploadCollection.getUploadedFiles());
+
+				// Move to Azure
+				if (SysSetting.AZURE_STORAGE_FLAG)
+				{
+					File file = new File(basePath + "\\" + prefix + fileVO.getFileName());
+					AzureBlob azureBlob = new AzureBlob();
+					azureBlob.copyFile(file, SysSetting.PHYSICAL_PATH_FOR_IMAGEFILE, fileVO.getFileName());
+
+					System.out.println("----fileVO.getFileName()----getFileName->>" + fileVO.getFileName());
+
+					File thumb_file = new File(basePath + "\\thumb_" + prefix + fileVO.getFileName());
+					azureBlob.copyFile(thumb_file, SysSetting.PHYSICAL_PATH_FOR_IMAGEFILE, "thumb_" + fileVO.getFileName());
+				}
+			}
+			fileVO.setSavedFiles(this.fileUploadCollection.getSavedFiles());//for modify case only
+			fileVO.setFileVOStatus(FileVO.FILE_UPLOADED_AND_SET_TO_SESSION);
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return 6;
+		}
+		return 0;
+	}
+	///////////
+	public byte addFileRequisitionDetailsItemFile(String basePath, String prefix, String thumbPrefix, ActionMapping mapping, ActionForm form, HttpServletRequest request, HttpServletResponse response)
+	{
+		//System.out.println("----basePath--111--->>"+basePath);
+		//System.out.println("----prefix--2222-->>"+prefix);
+		//System.out.println("----thumbPrefix---333-->>"+thumbPrefix);
+
+		FormFile formFile = fileVO.getFormFile();
+
+		//System.out.println("----4444444----->>"+fileVO.getFormFile());
+		//System.out.println("----4444444----->>"+fileVO.getFormFile().getFileName());
+
+		String ext;
+		if (fileVO.getFormFile().getFileName().equals(""))
+			return 2;
+		if (formFile.getFileName().indexOf(".") <= 0)
+		{
+			ext = "";
+		}
+		else
+		{
+			ext = formFile.getFileName().substring(formFile.getFileName().lastIndexOf('.') + 1);
+		}
+		if (!allowExtention(ext))
+		{
+			return 1;
+		}
+		if (this.allowExtensions != null)
+		{
+			if (!fixedExtentionOnly(ext))
+			{
+				return 4;
+			}
+		}
+		try
+		{
+			if (fileVO != null && !fileVO.getFormFile().toString().trim().equals(""))
+			{
+				fileVO.setUserFileName(formFile.getFileName());
+
+				String fileExtension = formFile.getFileName().substring(formFile.getFileName().lastIndexOf('.') + 1);
+				fileVO.setFileName(General.getNewFileName() + "." + fileExtension);
+
+				if (SysSetting.AZURE_STORAGE_FLAG)
+				{
+					AzureFile azureFile = new AzureFile();
+					azureFile.copyFile(fileVO.getFormFile().getInputStream(), fileVO.getFormFile().getFileSize(), basePath, fileVO.getFileName());
+				}
+				else
+				{
+					File file;
+					FileOutputStream fileOutputStream;
+					if (!(new File(basePath).exists()))
+					{
+						boolean st = new File(basePath).mkdirs();
+					}
+
+					file = new File(basePath + "\\" + prefix + fileVO.getFileName());
+					if (!(file.exists()))
+					{
+						file.createNewFile();
+						fileOutputStream = new FileOutputStream(file);
+						//int i=fileVO.getFormFile().getFileSize();
+						fileOutputStream.write(fileVO.getFormFile().getFileData());
+					}
+					else
+					{
+						return -1;
+					}
+					file.exists();
+				}
+				Runtime rt = Runtime.getRuntime();
+				Process proc = rt.exec(SysSetting.IMAGEMAGICK_INSTALLATION_DIRECTORY + "\\convert.exe -define jpeg " + basePath + "/" + prefix + fileVO.getFileName() + " -thumbnail 90x75 " + basePath + "/" + thumbPrefix + fileVO.getFileName());
+				proc.waitFor();
+				proc.destroy();
+				/*if (thumbPrefix != null)
+				 {
+				 file = new File(basePath + "\\" + thumbPrefix + fileVO.getFileName());
+				 if (!(file.exists()))
+				 {
+				 file.createNewFile();
+				 fileOutputStream = new FileOutputStream(file);
+				 //int i=fileVO.getFormFile().getFileSize();
+				 fileOutputStream.write(fileVO.getFormFile().getFileData());
+				 }						
+				 }	*/
+
+				//this.setUploadedFiles((ArrayList<FileVO>)request.getSession().getAttribute("uploadedFiles"));
+				//if no any file is uploaded
+
+				if (this.fileUploadCollection.getUploadedFiles() == null)
+					this.fileUploadCollection.setUploadedFiles(new ArrayList<FileVO>());
+
+				fileVO.setRow(this.fileUploadCollection.getUploadedFiles().size() + 1);
+				this.fileUploadCollection.getUploadedFiles().add(fileVO);
+
+				//request.getSession().setAttribute("uploadedFiles", this.fileUploadCollection.uploadedFiles);
+				this.setFilesToSession(request);
+
+				fileVO.setList(this.fileUploadCollection.getUploadedFiles());
+
+				// Move to Azure
+				if (SysSetting.AZURE_STORAGE_FLAG)
+				{
+					File file = new File(basePath + "\\" + prefix + fileVO.getFileName());
+					AzureBlob azureBlob = new AzureBlob();
+					azureBlob.copyFile(file, SysSetting.PHYSICAL_PATH_FOR_IMAGEFILE, fileVO.getFileName());
+
+					//System.out.println("----fileVO.getFileName()----getFileName->>"+fileVO.getFileName());
+
+					File thumb_file = new File(basePath + "\\thumb_" + prefix + fileVO.getFileName());
+					azureBlob.copyFile(thumb_file, SysSetting.PHYSICAL_PATH_FOR_IMAGEFILE, "thumb_" + fileVO.getFileName());
+				}
+			}
+			fileVO.setSavedFiles(this.fileUploadCollection.getSavedFiles());//for modify case only
+			fileVO.setFileVOStatus(FileVO.FILE_UPLOADED_AND_SET_TO_SESSION);
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			return 6;
+		}
+		return 0;
+	}
+}

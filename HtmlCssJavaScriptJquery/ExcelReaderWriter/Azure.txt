@@ -1,0 +1,186 @@
+package com.hdg.util.fileUpload;
+
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+
+import javax.servlet.http.HttpServletResponse;
+
+import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.storage.StorageUri;
+import com.microsoft.azure.storage.file.CloudFile;
+import com.microsoft.azure.storage.file.CloudFileClient;
+import com.microsoft.azure.storage.file.CloudFileDirectory;
+import com.microsoft.azure.storage.file.CloudFileShare;
+
+public class AzureFile
+{
+	CloudFileClient fileClient = null;
+	public AzureFile()
+	{
+		try
+		{
+			fileClient = FileClientProvider.getFileClientReference();
+		}
+		catch (Throwable t)
+		{
+			System.out.println("\nFailed to load azure_config.properties file.");
+			t.printStackTrace();
+		}
+	}
+	public CloudFileClient getFileClient()
+	{
+		return this.fileClient;
+	}
+	public void moveFile(String sourceFolder,String sourceFileName,String destinationFolder,String destinationFileName) throws StorageException, URISyntaxException, IOException
+	{		
+		System.out.println("Azure----------moveFile");
+		System.out.println("sourceFolder : "+sourceFolder);
+		System.out.println("sourceFileName : "+sourceFileName);
+		System.out.println("destinationFolder : "+destinationFolder);
+		System.out.println("destinationFileName : "+destinationFileName);
+		
+		
+		CloudFileShare cloudFileShare = fileClient.getShareReference(destinationFolder);
+		CloudFileShare cloudFileShare1 = fileClient.getShareReference(sourceFolder);
+		
+		CloudFileDirectory cloudRootDirectory = cloudFileShare.getRootDirectoryReference();
+		CloudFileDirectory cloudRootDirectory1 = cloudFileShare1.getRootDirectoryReference();
+		
+		//CloudFileDirectory cloudRootDirectory = destinationCloudRootDirectory.getDirectoryReference(destinationFolder);
+		cloudRootDirectory.createIfNotExists();
+		cloudRootDirectory1.createIfNotExists();
+		
+		CloudFile cloudFile = cloudRootDirectory.getFileReference(destinationFileName);
+		CloudFile cloudFile1 = cloudRootDirectory1.getFileReference(sourceFileName);
+		
+		//byte[] sourcebytes = getByteArray(sourceFolder, sourceFileName);
+		//cloudFile.uploadFromByteArray(sourcebytes, 0, sourcebytes.length);
+		cloudFile.startCopy(cloudFile1);
+	}
+	public void copyFile(File sourceFile, String destinationFolder, String destinationFileName) throws StorageException, URISyntaxException, IOException
+	{
+		System.out.println("Azure----------copyFile");
+		System.out.println("sourceFile===" + sourceFile);
+		System.out.println("destinationFolder===" + destinationFolder);
+		System.out.println("destinationFileName===" + destinationFileName);
+		CloudFileShare cloudFileShare = fileClient.getShareReference(destinationFolder);//"appstorage\\c3systemsDataFile"
+		CloudFileDirectory cloudRootDirectory = cloudFileShare.getRootDirectoryReference();
+		cloudRootDirectory.createIfNotExists();
+		CloudFile cloudFile = cloudRootDirectory.getFileReference(destinationFileName);
+		System.out.println("sourceFile.getAbsolutePath()=" + sourceFile.getAbsolutePath());
+		cloudFile.uploadFromFile(sourceFile.getAbsolutePath());
+
+	}
+	public boolean deleteFile(String destinationFolder, String destinationFileName) throws StorageException, URISyntaxException, IOException
+	{
+		System.out.println("Azure----------deleteFile");
+		System.out.println("destinationFolder===" + destinationFolder);
+		System.out.println("destinationFileName===" + destinationFileName);
+		CloudFileShare cloudFileShare = fileClient.getShareReference(destinationFolder);//"appstorage\\c3systemsDataFile"
+		CloudFileDirectory cloudRootDirectory = cloudFileShare.getRootDirectoryReference();
+		CloudFile cloudFile = cloudRootDirectory.getFileReference(destinationFileName);
+		return cloudFile.deleteIfExists();
+	}
+	public void createFolder(String destinationFolder) throws StorageException, URISyntaxException, IOException
+	{
+		System.out.println("Azure----------createFolder");
+		System.out.println("destinationFolder===" + destinationFolder);
+		CloudFileShare cloudFileShare = fileClient.getShareReference(destinationFolder);//"appstorage\\c3systemsDataFile"
+		CloudFileDirectory cloudRootDirectory = cloudFileShare.getRootDirectoryReference();
+		cloudRootDirectory.createIfNotExists();
+	}
+	public boolean deleteFolder(String destinationFolder) throws StorageException, URISyntaxException, IOException
+	{
+		System.out.println("Azure----------deleteFolder");
+		System.out.println("destinationFolder===" + destinationFolder);
+		CloudFileShare cloudFileShare = fileClient.getShareReference(destinationFolder);//"appstorage\\c3systemsDataFile"
+		CloudFileDirectory cloudRootDirectory = cloudFileShare.getRootDirectoryReference();
+		return cloudRootDirectory.deleteIfExists();
+	}
+	public void copyFile(InputStream inputStream, long length, String destinationFolder, String destinationFileName) throws StorageException, URISyntaxException, IOException
+	{
+		System.out.println("Azure----------copyFile");
+		System.out.println("destinationFolder===" + destinationFolder);
+		System.out.println("destinationFileName===" + destinationFileName);
+		CloudFileShare cloudFileShare = fileClient.getShareReference(destinationFolder);
+		CloudFileDirectory cloudRootDirectory = cloudFileShare.getRootDirectoryReference();
+		cloudRootDirectory.createIfNotExists();
+		CloudFile cloudFile = cloudRootDirectory.getFileReference(destinationFileName);
+		cloudFile.upload(inputStream, length);
+	}
+
+	public void downloadFile(String folderPath, String fileName, String userFileName, HttpServletResponse response) throws StorageException, URISyntaxException, IOException
+	{
+		System.out.println("Azure----------downloadFile");
+		System.out.println("folderPath===" + folderPath);
+		System.out.println("fileName===" + fileName);
+		System.out.println("userFileName===" + userFileName);
+
+		//File sourceFile, String destinationFolder, String destinationFileName
+		CloudFileShare cloudFileShare = fileClient.getShareReference(folderPath);//"appstorage\\c3systemsDataFile"
+		CloudFileDirectory cloudRootDirectory = cloudFileShare.getRootDirectoryReference();
+		CloudFile cloudFile = cloudRootDirectory.getFileReference(fileName);
+		if (cloudFile.exists())
+		{
+			response.setContentType("application/x-download");
+			response.setHeader("Content-Disposition", "attachment; filename=\"" + userFileName + "\"");
+			cloudFile.download(response.getOutputStream());
+		}
+	}
+	
+	public void downloadFile(String folderPath, String fileName, OutputStream outputStream) throws StorageException, URISyntaxException, IOException
+	{
+		System.out.println("Azure----------downloadFile");
+		System.out.println("folderPath===" + folderPath);
+		System.out.println("fileName===" + fileName);
+
+		//File sourceFile, String destinationFolder, String destinationFileName
+		CloudFileShare cloudFileShare = fileClient.getShareReference(folderPath);//"appstorage\\c3systemsDataFile"
+		CloudFileDirectory cloudRootDirectory = cloudFileShare.getRootDirectoryReference();
+		CloudFile cloudFile = cloudRootDirectory.getFileReference(fileName);
+		if (cloudFile.exists())
+		{
+			cloudFile.download(outputStream);
+		}
+	}
+
+	public String getText(String folder, String fileName) throws StorageException, URISyntaxException, IOException
+	{
+		System.out.println("Azure----------getText");
+		System.out.println("folder===" + folder);
+		System.out.println("fileName===" + fileName);
+
+		CloudFileShare cloudFileShare = fileClient.getShareReference(folder);//"appstorage\\c3systemsDataFile"
+		CloudFileDirectory cloudRootDirectory = cloudFileShare.getRootDirectoryReference();
+		CloudFile cloudFile = cloudRootDirectory.getFileReference(fileName);
+		return cloudFile.downloadText();
+	}
+	public byte[] getByteArray(String folder, String fileName) throws StorageException, URISyntaxException, IOException
+	{
+		System.out.println("Azure----------getText");
+		System.out.println("folder===" + folder);
+		System.out.println("fileName===" + fileName);
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		CloudFileShare cloudFileShare = fileClient.getShareReference(folder);//"appstorage\\c3systemsDataFile"
+		CloudFileDirectory cloudRootDirectory = cloudFileShare.getRootDirectoryReference();
+		CloudFile cloudFile = cloudRootDirectory.getFileReference(fileName);
+		cloudFile.download(bos);
+		return bos.toByteArray();
+	}
+	public void writeText(String folder, String fileName, String data) throws StorageException, URISyntaxException, IOException
+	{
+		System.out.println("Azure----------writeText");
+		System.out.println("folder===" + folder);
+		System.out.println("fileName===" + fileName);
+
+		CloudFileShare cloudFileShare = fileClient.getShareReference(folder);//"appstorage\\c3systemsDataFile"
+		CloudFileDirectory cloudRootDirectory = cloudFileShare.getRootDirectoryReference();
+		CloudFile cloudFile = cloudRootDirectory.getFileReference(fileName);
+		cloudFile.uploadText(data);
+	}
+}
