@@ -525,6 +525,156 @@ public String[] InvalidSheetFormate()
 	}
 	
 
+DownloadExcel with write
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+public ActionForward  reqExcelItemCatalog(ActionMapping mapping, ActionForm form, HttpServletRequest request, HttpServletResponse response) throws ServletException
+	{
+			ParaActionBase paraActionBase = ((FormBase) form).paraActionBase;
+			CommonFileForm commonFileForm = null;
+			String fileNameWithPath = "";
+
+			ParticipantExcelSpecification participantExcelSpecification = null;
+			fileNameWithPath =  SysSetting.Temp_PATH + "\\" + "\\" + "BulkInsertCatalog.xlsx";
+			String filename = "BulkInsertCatalog.xlsx";
+
+			try
+			{
+
+				commonFileForm = (CommonFileForm) form;
+				participantExcelSpecification = new ParticipantExcelSpecification(commonFileForm.getFormFile(), SysSetting.TEMP_LOCAL_PATH + "\\", paraActionBase.formator, Function.getHDGResourceBundleFromSession(paraActionBase.session));
+				File file = null;
+				file = new File(SysSetting.Temp_PATH + "\\" + "BulkInsertCatalog.xlsx");
+				if (file.exists())
+					file.delete();
+				participantExcelSpecification.additionalProductfieldExeclFileCreate(fileNameWithPath,  filename, request, paraActionBase);
+
+			}
+
+			catch (Exception exception)
+			{
+				exception.printStackTrace();
+			}
+			ActionSupporter.getSavedUploadedFile(fileNameWithPath, response, "BulkInsertCatalog.xlsx");
+
+			return mapping.findForward("BulkInsertCatalog");
+		}
+		
+		
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	public void additionalProductfieldExeclFileCreate(String fileNameWithPath, String filename, HttpServletRequest request, ParaActionBase paraActionBase) throws Exception
+	{
+
+		int companyId = Integer.parseInt(request.getParameter("companyId"));
+		ProductCatalogExcelStyleCreator productCatalogExcelStyleCreator = new ProductCatalogExcelStyleCreator();
+		ExcelReaderWriter excelReaderWriter = new ExcelReaderWriter(fileNameWithPath, productCatalogExcelStyleCreator);
+		CompanyItemCatalogCAB companyItemCatalogCAB = null;
+		DataValidation dataValidation = null;
+		DataValidationConstraint constraint = null;
+		DataValidationHelper validationHelper = null;
+		validationHelper = new XSSFDataValidationHelper(xssfSheet);
+		CellRangeAddressList addressList = null;
+		ArrayList<String> companyMeasureUnit = new ArrayList<String>();
+		RFQService rfqService = null;
+
+		String aditionalFieldName = "";
+		RFQCover rfqCover = new RFQCover();
+		int col = 0;
+		Sheet local_sheet = null;
+		try
+		{
+			rfqService = new RFQService(request);
+
+			excelReaderWriter.createSheet("Bulk Insert Catalog");
+			excelReaderWriter.createRow(1);
+			excelReaderWriter.setRowHeight(450);
+
+			excelReaderWriter.setCellAddress("C2");
+			excelReaderWriter.write("BulkInsert Product Catalog");
+			excelReaderWriter.setStyle("titleStyle");
+			excelReaderWriter.move(3, -2);
+			
+			
+			excelReaderWriter.write("SKU / Part No*");
+			excelReaderWriter.setStyle("titleStyle");
+
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Material No.");
+			excelReaderWriter.setStyle("titleStyle");
+
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Short Description*");
+			excelReaderWriter.setStyle("titleStyle");
+
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Long Description");
+			excelReaderWriter.setStyle("titleStyle");
+
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Unit of Measure");
+			excelReaderWriter.setStyle("titleStyle");
+			//excelReaderWriter.setStyle(key);
+
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Brand");
+			excelReaderWriter.setStyle("titleStyle");
+			col = 0;
+
+			ArrayList<CompanyMeasureUnitCAB> companyMeasureUnitCABArrayList = null;
+			companyMeasureUnitCABArrayList = rfqService.findCompanyMeasureUnit(companyId);
+			String[] list1 = new String[companyMeasureUnitCABArrayList.size()];
+			for (int i = 0; i < companyMeasureUnitCABArrayList.size(); i++)
+			{
+				companyMeasureUnit.add(companyMeasureUnitCABArrayList.get(i).getUnitName());
+				list1[i] = companyMeasureUnitCABArrayList.get(i).getUnitName();
+			}
+			String companyMeasureUnits[] = companyMeasureUnit.toArray(new String[companyMeasureUnit.size()]);
+
+			addressList = new CellRangeAddressList(5, 105, 4, 4);
+			constraint = validationHelper.createExplicitListConstraint(companyMeasureUnits);
+			dataValidation = validationHelper.createValidation(constraint, addressList);
+			dataValidation.setSuppressDropDownArrow(true);
+			dataValidation.setShowErrorBox(true);
+			dataValidation.createErrorBox("Invalid Input", "Something is wrong - please, select from List!");
+			excelReaderWriter.addValidationData(dataValidation);
+			excelReaderWriter.setAutoColumnWidth();
+			excelReaderWriter.save();
+			excelReaderWriter.close();
+		}
+		catch (Exception e)
+		{
+			
+			e.printStackTrace();
+		}
+		finally
+		{
+			
+		}
+	}
+
+}
 
 
+class ProductCatalogExcelStyleCreator implements ExcelStyleCreator
+{
+
+	@Override
+	public void addExcelStyleSet(Workbook workbook, ExcelStyleSet excelStyleSet)
+	{
+		//TitleStyle
+		Font titleFont = workbook.createFont();
+		titleFont.setFontName("ARIAL");
+		titleFont.setBoldweight(HSSFFont.BOLDWEIGHT_BOLD);
+		titleFont.setFontHeightInPoints((short) 11);
+		titleFont.setColor(HSSFColor.BLACK.index);
+
+		CellStyle titleStyle = workbook.createCellStyle();
+		titleStyle.setFont(titleFont);
+		titleStyle.setAlignment(HSSFCellStyle.ALIGN_CENTER);
+		titleStyle.setVerticalAlignment(HSSFCellStyle.VERTICAL_TOP);
+		titleStyle.setWrapText(false);
+		//titleStyle.setFillBackgroundColor(HSSFColor.BLACK.index);
+		//titleStyle.setFillPattern(HSSFCellStyle.SOLID_FOREGROUND);
+
+		excelStyleSet.setStyle("titleStyle", titleStyle);
+}
 
