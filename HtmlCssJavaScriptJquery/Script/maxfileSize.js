@@ -136,3 +136,19 @@ function removePreceedingZero(num) {
 		return str;
 	}
 }
+
+var extensionfile = false;
+function fileExtensionValidation(fileInput){
+    //var fileInput = document.getElementById('file');
+    var filePath = fileInput.value;
+    var allowedExtensions = /(\.jpg|\.jpeg|\.png|\.gif)$/i;
+    if(!allowedExtensions.exec(filePath)){
+        //alert('Please upload file having extensions .jpeg/.jpg/.png/.gif only.');
+        fileInput.value = '';
+        return extensionfile;
+    }else
+    {
+    	extensionfile = true;
+    	return extensionfile;
+    }
+}
