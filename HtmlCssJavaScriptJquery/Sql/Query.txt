@@ -62,6 +62,15 @@ SELECT     [Emp].[EmpID]
 
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ comma separated list
+
+SELECT e.EmpID, e.Name,
+STUFF((SELECT ',' + COALESCE(LTRIM(RTRIM(sm.name)), '') 
+FROM EmployeeSkill es
+INNER JOIN SkillMaster sm on es.skillId = sm.skillId
+WHERE es.Empid = e.EmpID
+FOR XML PATH('') ), 1, 1, '') as TerritoryList
+FROM Emp e
 
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
