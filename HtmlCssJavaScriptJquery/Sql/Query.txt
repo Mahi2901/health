@@ -45,6 +45,21 @@ SELECT  [English]
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+select Emp.Name,Email,MobileNo,SkillMaster.name from Emp,SkillMaster,EmployeeSkill where Emp.EmpID = EmployeeSkill.Empid and EmployeeSkill.skillId = SkillMaster.skillId
+
+SELECT     [Emp].[EmpID]
+			  ,[Emp].[Name]
+			  ,[Email]
+			  ,[MobileNo]
+			  ,[City]
+			  ,[Hobbies]
+			  ,[Gender]
+			  ,SkillMaster.[name]
+	FROM Emp JOIN EmployeeSkill 
+			ON (Emp.EmpID=EmployeeSkill.Empid) join SkillMaster 
+			ON (SkillMaster.skillId=EmployeeSkill.skillId);
+	
+
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
