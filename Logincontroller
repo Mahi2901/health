@@ -1,0 +1,179 @@
+package com.helth.helthcare.controller;
+
+import javax.mail.MessagingException;
+import javax.mail.internet.MimeMessage;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+import com.helth.helthcare.model.User;
+import com.helth.helthcare.repository.AdminRepo;
+import com.helth.helthcare.repository.DoctorRepo;
+import com.helth.helthcare.repository.PatientRepo;
+import com.helth.helthcare.repository.ReceptionRepo;
+import com.helth.helthcare.repository.UserRepo;
+
+@Controller
+public class LoginController 
+{
+	@Autowired
+	private JavaMailSender sender;
+	
+	@Autowired
+	ReceptionRepo recaptionRepo;
+
+	@Autowired
+	AdminRepo adminRepo;
+	
+	@Autowired
+	DoctorRepo doctorRepo;
+	
+	@Autowired
+	PatientRepo patientRepo;
+	
+	@Autowired
+	UserRepo userRepo;
+	/*
+	 @RequestMapping("/loginAction")
+	 
+	public String login(HttpServletRequest request,HttpServletResponse response,HttpSession session) {
+		   String uname = request.getParameter("uname");
+		   String pass = request.getParameter("password");
+		   String type = request.getParameter("type");
+		   
+		   System.out.println(uname);
+		   System.out.println(pass);
+		   System.out.println(type);
+		   
+		   if(type.equalsIgnoreCase("Patient"))
+		   {
+			   PatientModel patient = patientRepo.getPatient(uname, pass);
+			   if(patient!=null) {
+				   session.setAttribute("patient", patient);
+				   return "redirect:/Patientdash/index";
+	  
+			   }else {
+				
+				   return "/Patienthome/login";
+			   }
+		   }
+		   else if(type.equalsIgnoreCase("Doctor"))
+		   {
+			   DoctorModel doctor = doctorRepo.getDoctor(uname, pass);
+			   if(doctor!=null) {
+				   session.setAttribute("doctor", doctor);
+				   return "redirect:/doctore/index";
+	  
+			   }else {
+				
+				   return "/Patienthome/login";
+			   }
+			   
+		   }
+		   else if(type.equalsIgnoreCase("Reception"))
+		   {
+			   ReceptionModel reception = recaptionRepo.getReception(uname, pass);
+			   if(reception!=null) {
+				   session.setAttribute("reception", reception);
+				   return "redirect:/Reception/index";
+	  
+			   }else {
+				
+				   return "/Patienthome/login";
+			   }
+			   
+		   }
+		  		
+			return null;
+		   
+	}
+	
+	*/
+	
+	/*
+    @RequestMapping("/Admin/loginform")
+	public String Adminlogin(HttpServletRequest request,HttpServletResponse response,HttpSession session) 
+	{
+		   String uname = request.getParameter("uname");
+		   String pass = request.getParameter("password");
+		   
+		   System.out.println(uname);
+		   System.out.println(pass);
+		   AdminModel admin = adminRepo.getAdmin(uname, pass);
+		   if(admin!=null) {
+			   session.setAttribute("admin", admin);
+			   return "redirect:/Admin/index";
+  
+		   }else {
+			
+			   return "/Admin/login";
+		   }
+		    
+		   
+	}
+	*/
+	@RequestMapping("/adminsessionout")
+	public String adminsessionout(HttpServletRequest request,HttpServletResponse response) 
+	{
+		HttpSession session = request.getSession();
+		session.invalidate();    
+		return "redirect:/Admin/login";
+	}
+	
+	
+	@RequestMapping("/login?error")
+	public String sessionout(Model model) 
+	{
+		model.addAttribute("message", "Wrong user name or Password");
+		return "Patienthome/wrong";
+	}
+	
+	
+	
+	
+	
+	
+	@RequestMapping("/resetAction")
+	public String resetPassword(HttpServletRequest request,HttpServletResponse response) {
+		   String uname = request.getParameter("uname");
+		   
+		   System.out.println(uname);
+		   
+		  
+			   User users = userRepo.findByEmail(uname);
+			   if(users!=null) {
+				   MimeMessage message = sender.createMimeMessage();
+				   MimeMessageHelper helper = new MimeMessageHelper(message);
+				   try {
+						helper.setTo(users.getEmail());
+						helper.setText("Your Password Reset Link http://localhost:8080/Reset-Password?token="+users.getResetToken());
+						helper.setSubject("Mail For Reset Password");
+					} catch (MessagingException e) {
+						e.printStackTrace();
+						return "Error while sending mail ..";
+					}
+					sender.send(message);
+									   
+				   return "redirect:/index";
+	  
+			   }
+			   else 
+			   {
+				
+				   return "/Patienthome/login";
+			   }
+		   
+	}
+	
+	
+	
+
+
+}
