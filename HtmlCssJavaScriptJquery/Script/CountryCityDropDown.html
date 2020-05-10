@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+	<script type="text/javascript" src="js/country_state.js"></script>
+	<script type="text/javascript">
+		var selectCountry="Select Country";
+		var selectState="Select State";
+		function headerPageLoaded()
+		{
+			if(pageLoaded!=undefined)
+			{
+				pageLoaded();
+			}
+		}
+		function pageLoaded()
+		{
+			fillCountryStateOnLoad();
+		}
+	</script>
+</head>
+<body onLoad="headerPageLoaded();">
+	<form>
+
+		<input type="hidden" name="countryMasterID_hidden" value="">
+		<input type="hidden" name="stateMasterID_hidden" value="">
+		<select name="countryMasterID" id="countryMasterId" onchange="fill_state(this.value);">
+			
+		</select>
+		<select name="stateMasterID" id="stateMasterId">
+			
+		</select>
+	</form>
+</body>
+</html>
