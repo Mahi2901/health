@@ -74,7 +74,9 @@ FROM Emp e
 
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+select CONCAT('(',countryMasterID,',','"',countryName,'"',',',countryCode,',',deleted,')') from CountryMaster
 
+select CONCAT('(',stateMasterID,',',countryMasterID,',','"',stateName,'"',',',deleted,')') from StateMaster
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
