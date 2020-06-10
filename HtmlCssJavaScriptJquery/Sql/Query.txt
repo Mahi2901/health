@@ -79,7 +79,7 @@ select CONCAT('(',countryMasterID,',','"',countryName,'"',',',countryCode,',',de
 select CONCAT('(',stateMasterID,',',countryMasterID,',','"',stateName,'"',',',deleted,')') from StateMaster
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
+ALTER TABLE RFITemplateSpecification ADD rfiTemplateSpecificationID BIGINT PRIMARY KEY IDENTITY;
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
