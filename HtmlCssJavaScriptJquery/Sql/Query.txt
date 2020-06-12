@@ -82,7 +82,39 @@ select CONCAT('(',stateMasterID,',',countryMasterID,',','"',stateName,'"',',',de
 ALTER TABLE RFITemplateSpecification ADD rfiTemplateSpecificationID BIGINT PRIMARY KEY IDENTITY;
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+create table Customer(customerID bigint not null primary key,customerName varchar(30),city varchar(20),rating int,salesmanID bigint);
+create table Salesman(salesmanID bigint not null primary key,salesmanName varchar(30),city varchar(25),commition int);
+create table Order1(orederID bigint, amount decimal(6,2),orderDate date,customerID bigint,salesmanID bigint);
 
+
+insert into customer values(2001,'hardik','london',100,1001);
+insert into Customer values(2002,'gita','rome',200,1003);
+insert into Customer values(2003,'laxit','surat',200,1002);
+insert into Customer values(2004,'govind','bombay',300,1002);
+insert into Customer values(2005,'chandresh','london',100,1001);
+insert into Customer values(2006,'champak','surat',300,1007);
+insert into Customer values(2007,'pratik','rome',100,1004);
+insert into Customer values(2008,'manoj','london',200,1007);
+
+insert into Salesman values(1001,'piyush','london',12);
+insert into Salesman values(1002,'niraj','surat',13);
+insert into Salesman values(1003,'miti','london',11);
+insert into Salesman values(1004,'rajesh','baroda',15);
+insert into Salesman values(1005,'anand','new delhi',10);
+insert into Salesman values(1006,'ram','patan',10);
+insert into Salesman values(1007,'laxman','bombay',09);
+
+
+insert into Order1 values(3001,18.69,'03 mar 99',2007,1007);
+insert into Order1 values(3002,767.19,'05 mar 97',2001,1001);
+insert into Order1 values(3003,1900.10,'10 mar 97',2007,1004);
+insert into Order1 values(3004,5160.45,'12 mar 99',2003,1002);
+insert into Order1 values(3005,1098.25,'15 apr 99',2008,1007);
+insert into Order1 values(3006,1713.12,'10 apr 95',2002,1003);
+insert into Order1 values(3007,75.75,'20 may 96',2004,1002);
+insert into Order1 values(3008,4723.00,'30 may 99',2006,1001);
+insert into Order1 values(3009,1309.95,'08 may 97',2004,1002);
+insert into Order1 values(3010,9898.87,'06 jun 99',2006,1001);
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
