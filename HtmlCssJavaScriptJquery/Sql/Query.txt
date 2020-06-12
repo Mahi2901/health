@@ -118,6 +118,22 @@ insert into Order1 values(3010,9898.87,'06 jun 99',2006,1001);
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+create table Marks(studentID bigint references Student,sub1 int,sub2 int,sub3 int,sub4 int);
+create table Result(studentID bigint references Student,studentName varchar(30),total int,per decimal(4,2),class varchar(15));
+
+
+insert into Student values(1,'mahesh','deodar',6525361445);
+insert into Student values(2,'manoj','patan',6525341425);
+insert into Student values(3,'ramesh','surat',6545161445);
+insert into Student values(4,'rahul','deodar',6525265445);
+insert into Student values(5,'chitan','patan',6524364745);	
+
+
+insert into Marks values(1,65,66,34,69);
+insert into Marks values(2,68,35,38,62);
+insert into Marks values(3,70,60,40,60);
+insert into Marks values(4,52,61,39,60);
+insert into Marks values(5,55,60,42,56);
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
