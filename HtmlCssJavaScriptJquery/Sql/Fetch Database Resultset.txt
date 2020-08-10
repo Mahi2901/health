@@ -1,0 +1,644 @@
+/*
+
+ NOTICE
+
+ Liability, COPYRIGHT NetXs Solutions Inc
+ ALL RIGHTS RESERVED
+
+ This document is CONFIDENTIAL and a TRADE SECRET of NetXs Solutions Inc. The receipt or possession 
+ of this document does not convey any rights to reproduce, modify, distribute or disclose its contents, 
+ or to manufacture, use, or sell anything that it may describe, in whole or in part, without the 
+ specific written consent of NetXs Solutions Inc.  Any use, modification, distribution or reproduction 
+ of this document without the express written consent of NetXs Solutions Inc. is a violation of the 
+ copyright laws and may subject you to criminal and or civil prosecution.
+
+ */
+/**********************************************************************************************
+ Name of the application               NetxGeneralLib
+ Name of the code                      
+ Purpose of the code                   It is used for EBean of AdditionalExpensesDetail
+ Start date of code                    12:31 PM 10/4/2007
+ last modification date.               12:31 PM 10/4/2007
+ Coder's name.                         Prashant
+ Last modifier's name.                 Prashant
+ Version number of the code.           1.0
+ Last QA Person.                       Prashant
+ Last QC date.                         Prashant
+ Redirected From the File              N/A
+ **********************************************************************************************/
+
+package com.netx;
+
+import java.lang.reflect.Method;
+import java.lang.reflect.Type;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Vector;
+
+public class DBUtil implements java.io.Serializable
+{
+	public static Object copyFromResultSet(Object cabin1, Object cabin2, ResultSet resultSet)
+	{
+		ArrayList objectArrayList = new ArrayList(2);
+		try
+		{
+			objectArrayList.add(cabin1);
+			objectArrayList.add(cabin2);
+			copyFromResultSet(objectArrayList, resultSet);
+			cabin1 = objectArrayList.get(0);
+			cabin1 = objectArrayList.get(1);
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+		return objectArrayList.get(0);
+	}
+	public static void copyFromResultSet(Object object, ResultSet resultSet)
+	{
+		ArrayList objectArrayList = new ArrayList(1);
+		try
+		{
+
+			objectArrayList.add(object);
+			copyFromResultSet(objectArrayList, resultSet);
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+	}
+	public static Object copyFromResultSet(Class clazz, ResultSet resultSet)
+	{
+		ArrayList objectArrayList = new ArrayList(1);
+		try
+		{
+			Object object = clazz.newInstance();
+			objectArrayList.add(object);
+			copyFromResultSet(objectArrayList, resultSet);
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+		return objectArrayList.get(0);
+	}
+	public static void copyFromResultSet(ArrayList<Object> objectArrayList, ResultSet resultSet)
+	{
+		ArrayList arrayList = null;
+		try
+		{
+			if (objectArrayList != null)
+			{
+				int objectArrayList_len = objectArrayList.size();
+				int objectArrayList_index = 0;
+				java.beans.BeanInfo toBeanInfo[] = new java.beans.BeanInfo[objectArrayList_len];
+
+				Vector<Method> objectMethodVector[] = new Vector[objectArrayList_len];
+				Vector<Type> objectTypeVector[] = new Vector[objectArrayList_len];
+				int totalMethod[] = new int[objectArrayList_len];
+				int[][] indexes = new int[objectArrayList_len][];
+
+				for (objectArrayList_index = 0; objectArrayList_index < objectArrayList_len; objectArrayList_index++)
+				{
+					toBeanInfo[objectArrayList_index] = java.beans.Introspector.getBeanInfo(objectArrayList.get(objectArrayList_index).getClass());
+				}
+				if (objectArrayList_len > 0 && resultSet != null)
+				{
+					Method method = null;
+					Type type[] = null;
+					int cols = 0;
+					String colName = null;
+					for (objectArrayList_index = 0; objectArrayList_index < objectArrayList_len; objectArrayList_index++)
+					{
+						//toBeanInfo[objectArrayList_index]=java.beans.Introspector.getBeanInfo(objectArrayList.get(objectArrayList_index).getClass());
+						java.beans.PropertyDescriptor toPropertyDescriptor[] = toBeanInfo[objectArrayList_index].getPropertyDescriptors();
+						int toPropertyDescriptor_length = toPropertyDescriptor.length;
+						method = null;
+						type = null;
+
+						ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
+
+						cols = resultSetMetaData.getColumnCount();
+						colName = null;
+
+						Vector<Method> methodVector = new Vector(cols);
+						Vector<Type> typeVector = new Vector(cols);
+
+						indexes[objectArrayList_index] = new int[cols];
+						totalMethod[objectArrayList_index] = -1;
+						for (int i = 1; i <= cols; i++)
+						{
+							colName = resultSetMetaData.getColumnName(i);
+							for (int j = 0; j < toPropertyDescriptor_length; j++)
+							{
+								if (toPropertyDescriptor[j].getName().equalsIgnoreCase(colName))
+								{
+									totalMethod[objectArrayList_index]++;
+									method = toPropertyDescriptor[j].getWriteMethod();
+									type = method.getGenericParameterTypes();
+									methodVector.add(method);
+									typeVector.add(type[0]);
+									indexes[objectArrayList_index][totalMethod[objectArrayList_index]] = i;
+									break;
+								}
+							}
+						}
+						objectMethodVector[objectArrayList_index] = (methodVector);
+						objectTypeVector[objectArrayList_index] = (typeVector);
+					}
+
+					if (resultSet.next())
+					{
+						arrayList = new ArrayList();
+						for (objectArrayList_index = 0; objectArrayList_index < objectArrayList_len; objectArrayList_index++)
+						{
+							for (int i = 0; i <= totalMethod[objectArrayList_index]; i++)
+							{
+								objectMethodVector[objectArrayList_index].get(i).invoke(objectArrayList.get(objectArrayList_index), getObject(indexes[objectArrayList_index][i], objectTypeVector[objectArrayList_index].get(i), resultSet));
+							}
+							arrayList.add(objectArrayList.get(objectArrayList_index));
+						}
+					}
+					while (resultSet.next())
+					{
+						for (objectArrayList_index = 0; objectArrayList_index < objectArrayList_len; objectArrayList_index++)
+						{
+							for (int i = 0; i <= totalMethod[objectArrayList_index]; i++)
+							{
+								objectMethodVector[objectArrayList_index].get(i).invoke(objectArrayList.get(objectArrayList_index), getObject(indexes[objectArrayList_index][i], objectTypeVector[objectArrayList_index].get(i), resultSet));
+							}
+							arrayList.add(objectArrayList.get(objectArrayList_index));
+						}
+					}
+				}
+			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+	}
+	public static ArrayList copyListFromResultSet(Class clazz, ResultSet resultSet)
+	{
+		return copyListFromResultSet(clazz, resultSet, null, null);
+	}
+	public static Vector copyListFromResultSetVector(Class clazz, ResultSet resultSet)
+	{
+		return copyListFromResultSetVector(clazz, resultSet, null, null);
+	}
+	public static Vector copyListFromResultSetVector(Class clazz, ResultSet resultSet, Object extraSettingAnObject, String extraSettingAnObjectSetterAttribute)
+	{
+		Vector arrayList = null;
+		try
+		{
+			java.beans.BeanInfo toBeanInfo = java.beans.Introspector.getBeanInfo(clazz);
+			if (toBeanInfo != null && resultSet != null)
+			{
+				java.beans.PropertyDescriptor toPropertyDescriptor[] = toBeanInfo.getPropertyDescriptors();
+				int toPropertyDescriptor_length = toPropertyDescriptor.length;
+				Method method = null;
+				Type type[] = null;
+
+				ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
+
+				int cols = resultSetMetaData.getColumnCount();
+				String colName = null;
+
+				Vector<Method> methodVector = new Vector(cols);
+				Vector<Type> typeVector = new Vector(cols);
+
+				boolean needToCallExtraMethods = (extraSettingAnObject != null && extraSettingAnObjectSetterAttribute != null) ? true : false;
+				Method extraSettingAnObjectSetterMethod = null;//Type extraSettingAnObjectSetterMethodType[]=null; 
+				if (needToCallExtraMethods)
+					for (int j = 0; j < toPropertyDescriptor_length; j++)
+					{
+						if (toPropertyDescriptor[j].getName().equalsIgnoreCase(extraSettingAnObjectSetterAttribute))
+						{
+							extraSettingAnObjectSetterMethod = toPropertyDescriptor[j].getWriteMethod();
+							break;
+						}
+					}
+
+				int[] indexes = new int[cols];
+				int totalMethod = -1;
+				for (int i = 1; i <= cols; i++)
+				{
+					colName = resultSetMetaData.getColumnName(i);
+					for (int j = 0; j < toPropertyDescriptor_length; j++)
+					{
+						if (toPropertyDescriptor[j].getName().equalsIgnoreCase(colName))
+						{
+							totalMethod++;
+							method = toPropertyDescriptor[j].getWriteMethod();
+							type = method.getGenericParameterTypes();
+							methodVector.add(method);
+							typeVector.add(type[0]);
+							indexes[totalMethod] = i;
+							break;
+						}
+					}
+				}
+				try
+				{
+					if (resultSet.next())
+					{
+						arrayList = new Vector();
+						Object obj = clazz.newInstance();
+						for (int i = 0; i <= totalMethod; i++)
+						{
+							methodVector.get(i).invoke(obj, getObject(indexes[i], typeVector.get(i), resultSet));
+						}
+						if (needToCallExtraMethods)
+							extraSettingAnObjectSetterMethod.invoke(obj, extraSettingAnObject);
+						arrayList.add(obj);
+					}
+					while (resultSet.next())
+					{
+						Object obj = clazz.newInstance();
+						for (int i = 0; i <= totalMethod; i++)
+						{
+							methodVector.get(i).invoke(obj, getObject(indexes[i], typeVector.get(i), resultSet));
+						}
+						if (needToCallExtraMethods)
+							extraSettingAnObjectSetterMethod.invoke(obj, extraSettingAnObject);
+						arrayList.add(obj);
+					}
+				}
+				catch (SQLException e)
+				{
+					if (e.getErrorCode() == 0)
+					{
+						if (e.getMessage().equals("The TDS protocol stream is not valid."))
+						{
+							System.err.println("The TDS protocol stream is not valid.");
+							//resultSet.close();
+							//resultSet=null;
+						}
+						else
+						{
+							throw e;
+						}
+					}
+					else
+					{
+						throw e;
+					}
+				}
+			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+		return arrayList;
+	}
+	public static ArrayList copyListFromResultSet(Class clazz, ResultSet resultSet, Object extraSettingAnObject, String extraSettingAnObjectSetterAttribute)
+	{
+		ArrayList arrayList = null;
+		try
+		{
+			java.beans.BeanInfo toBeanInfo = java.beans.Introspector.getBeanInfo(clazz);
+			if (toBeanInfo != null && resultSet != null)
+			{
+				java.beans.PropertyDescriptor toPropertyDescriptor[] = toBeanInfo.getPropertyDescriptors();
+				int toPropertyDescriptor_length = toPropertyDescriptor.length;
+				Method method = null;
+				Type type[] = null;
+
+				ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
+
+				int cols = resultSetMetaData.getColumnCount();
+				String colName = null;
+
+				Vector<Method> methodVector = new Vector(cols);
+				Vector<Type> typeVector = new Vector(cols);
+
+				boolean needToCallExtraMethods = (extraSettingAnObject != null && extraSettingAnObjectSetterAttribute != null) ? true : false;
+				Method extraSettingAnObjectSetterMethod = null;//Type extraSettingAnObjectSetterMethodType[]=null; 
+				if (needToCallExtraMethods)
+					for (int j = 0; j < toPropertyDescriptor_length; j++)
+					{
+						if (toPropertyDescriptor[j].getName().equalsIgnoreCase(extraSettingAnObjectSetterAttribute))
+						{
+							extraSettingAnObjectSetterMethod = toPropertyDescriptor[j].getWriteMethod();
+							break;
+						}
+					}
+
+				int[] indexes = new int[cols];
+				int totalMethod = -1;
+				for (int i = 1; i <= cols; i++)
+				{
+					colName = resultSetMetaData.getColumnName(i);
+					for (int j = 0; j < toPropertyDescriptor_length; j++)
+					{
+						if (toPropertyDescriptor[j].getName().equalsIgnoreCase(colName))
+						{
+							totalMethod++;
+							method = toPropertyDescriptor[j].getWriteMethod();
+							type = method.getGenericParameterTypes();
+							methodVector.add(method);
+							typeVector.add(type[0]);
+							indexes[totalMethod] = i;
+							break;
+						}
+					}
+				}
+				try
+				{
+					if (resultSet.next())
+					{
+						arrayList = new ArrayList();
+						Object obj = clazz.newInstance();
+						for (int i = 0; i <= totalMethod; i++)
+						{
+							//////ystem.out.println("Method===++=" + methodVector.get(i));
+							methodVector.get(i).invoke(obj, getObject(indexes[i], typeVector.get(i), resultSet));
+						}
+						if (needToCallExtraMethods)
+							extraSettingAnObjectSetterMethod.invoke(obj, extraSettingAnObject);
+						arrayList.add(obj);
+					}
+					while (resultSet.next())
+					{
+						Object obj = clazz.newInstance();
+						for (int i = 0; i <= totalMethod; i++)
+						{
+							methodVector.get(i).invoke(obj, getObject(indexes[i], typeVector.get(i), resultSet));
+						}
+						if (needToCallExtraMethods)
+							extraSettingAnObjectSetterMethod.invoke(obj, extraSettingAnObject);
+						arrayList.add(obj);
+					}
+				}
+				catch (SQLException e)
+				{
+					if (e.getErrorCode() == 0)
+					{
+						if (e.getMessage().equals("The TDS protocol stream is not valid."))
+						{
+							System.err.println("The TDS protocol stream is not valid.");
+							//resultSet.close();
+							//resultSet=null;
+						}
+						else
+						{
+							throw e;
+						}
+					}
+					else
+					{
+						throw e;
+					}
+				}
+			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+		return arrayList;
+	}
+	public static String getObjectCMD(int index, Type type, ResultSet resultSet)
+	{
+		String stcmd = "";
+		if (type == Long.TYPE)
+		{
+			stcmd = "{data=resultSet.getLong(" + index + ");}";
+		}
+		else if (type == Long.class)
+		{
+			stcmd = "{data=new Long(resultSet.getLong(" + index + "));}		     ";
+		}
+		else if (type == Byte.TYPE)
+		{
+			stcmd = "{data=resultSet.getByte(" + index + ");}";
+		}
+		else if (type == Byte.class)
+		{
+			stcmd = "{data=getByte(resultSet.getObject(" + index + "));}";
+		}
+		else if (type == java.util.Calendar.class)
+		{
+			stcmd = "{Timestamp timestamp=resultSet.getTimestamp(" + index + ");if(timestamp!=null){Calendar c=Calendar.getInstance();c.setTimeInMillis((timestamp.getTime()));data=c;}else data=null;} ";
+		}
+		else if (type == java.util.Date.class)
+		{
+			stcmd = "{Timestamp timestamp=resultSet.getTimestamp(" + index + ");if(timestamp!=null){data=new java.util.Date((timestamp.getTime()));}else data=null;}";
+		}
+		else if (type == java.sql.Date.class)
+		{
+			stcmd = "{Timestamp timestamp=resultSet.getTimestamp(" + index + ");if(timestamp!=null){data=new java.sql.Date((timestamp.getTime()));}else data=null;}";
+		}
+		else if (type == Object.class)
+		{
+			stcmd = "{data=resultSet.getObject(" + index + ");}";
+		}
+		else if (type == Integer.TYPE)
+		{
+			stcmd = "{data=resultSet.getInt(" + index + ");}";
+		}
+		else if (type == Integer.class)
+		{
+			stcmd = "{data=new Integer(resultSet.getInt(" + index + "));}";
+		}
+		else if (type == Double.TYPE)
+		{
+			stcmd = "{data=resultSet.getDouble(" + index + ");}";
+		}
+		else if (type == Double.class)
+		{
+			stcmd = "{data=new Double(resultSet.getDouble(" + index + "));}";
+		}
+		else if (type == String.class)
+		{
+			stcmd = "{data=resultSet.getString(" + index + ");}";
+		}
+		else
+		{
+			stcmd = "{data=resultSet.getString(" + index + ");}";
+		}
+		return stcmd;
+	}
+
+	public static Object getObject(int index, Type type, ResultSet resultSet) throws SQLException
+	{
+		Object data = null;
+		if (type == Long.TYPE)
+		{
+			data = resultSet.getLong(index);
+		}
+		else if (type == Long.class)
+		{
+			data = new Long(resultSet.getLong(index));
+		}
+		else if (type == Byte.TYPE)
+		{
+			data = resultSet.getByte(index);
+		}
+		else if (type == Byte.class)
+		{
+			data = getByte(resultSet.getObject(index));
+		}
+		else if (type == java.util.Calendar.class)
+		{
+			Timestamp timestamp = resultSet.getTimestamp(index);
+			if (timestamp != null)
+			{
+				Calendar c = Calendar.getInstance();
+				c.setTimeInMillis((timestamp.getTime()));
+				data = c;
+			}
+			else
+				data = null;
+		}
+		else if (type == java.util.Date.class)
+		{
+			Timestamp timestamp = resultSet.getTimestamp(index);
+			if (timestamp != null)
+			{
+				data = new java.util.Date((timestamp.getTime()));
+			}
+			else
+				data = null;
+		}
+		else if (type == java.sql.Date.class)
+		{
+			Timestamp timestamp = resultSet.getTimestamp(index);
+			if (timestamp != null)
+			{
+				data = new java.sql.Date((timestamp.getTime()));
+			}
+			else
+				data = null;
+		}
+		else if (type == Object.class)
+		{
+			data = resultSet.getObject(index);
+		}
+		else if (type == Integer.TYPE)
+		{
+			data = resultSet.getInt(index);
+		}
+		else if (type == Integer.class)
+		{
+			//data = new Integer(resultSet.getInt(index));
+			data = getInteger(resultSet.getObject(index));
+		}
+		else if (type == Double.TYPE)
+		{
+			data = resultSet.getDouble(index);
+		}
+		else if (type == Double.class)
+		{
+			data = getDouble(resultSet.getObject(index));
+		}
+		else if (type == String.class)
+		{
+			data = resultSet.getString(index);
+		}
+		else
+		{
+			data = resultSet.getString(index);
+		}
+		return data;
+	}
+	private static Byte getByte(Object object)
+	{
+		if (object == null)
+			return null;
+		else
+		{
+			Byte byteObj = null;
+			try
+			{
+				byteObj = (Byte) object;
+			}
+			catch (Exception e)
+			{
+				try
+				{
+					if (object instanceof Boolean)
+					{
+						byteObj = ((Boolean) object) ? new Byte((byte) 1) : new Byte((byte) 0);
+					}
+					else
+					{
+						byteObj = new Byte(object.toString());
+					}
+				}
+				catch (Exception ex)
+				{
+					ex.printStackTrace();
+				}
+			}
+			return byteObj;
+		}
+	}
+	private static Double getDouble(Object object)
+	{
+		if (object == null)
+			return null;
+		else
+		{
+			Double doubleObj = null;
+			try
+			{
+				doubleObj = (Double) object;
+			}
+			catch (Exception e)
+			{
+				try
+				{
+					doubleObj = new Double(object.toString());
+				}
+				catch (Exception ex)
+				{
+					ex.printStackTrace();
+				}
+			}
+			return doubleObj;
+		}
+	}
+	private static Integer getInteger(Object object)
+	{
+		if (object == null)
+			return null;
+		else
+		{
+			Integer IntegerObj = null;
+			try
+			{
+				IntegerObj = (Integer) object;
+			}
+			catch (Exception e)
+			{
+				try
+				{
+					if (object.toString().equals("false"))
+					{
+						IntegerObj = 0;
+					}
+					else if (object.toString().equals("true"))
+					{
+						IntegerObj = 1;
+					}
+					else
+					{
+						IntegerObj = new Integer(object.toString());
+					}
+				}
+				catch (Exception ex)
+				{
+					ex.printStackTrace();
+				}
+			}
+			return IntegerObj;
+		}
+	}
+}
