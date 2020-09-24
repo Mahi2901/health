@@ -19,6 +19,8 @@ import javax.servlet.http.HttpServletRequest;
 import org.apache.poi.hssf.usermodel.HSSFCellStyle;
 import org.apache.poi.hssf.usermodel.HSSFDateUtil;
 import org.apache.poi.hssf.usermodel.HSSFFont;
+import org.apache.poi.hssf.usermodel.HSSFRow;
+import org.apache.poi.hssf.usermodel.HSSFSheet;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.hssf.util.HSSFColor;
 import org.apache.poi.ss.usermodel.Cell;
@@ -30,6 +32,7 @@ import org.apache.poi.ss.usermodel.DataValidationHelper;
 import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.IndexedColors;
+import org.apache.poi.ss.usermodel.Name;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
@@ -39,6 +42,8 @@ import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.ss.util.CellRangeAddressList;
 import org.apache.poi.ss.util.NumberToTextConverter;
 import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFDataValidation;
+import org.apache.poi.xssf.usermodel.XSSFDataValidationConstraint;
 import org.apache.poi.xssf.usermodel.XSSFDataValidationHelper;
 import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.apache.poi.xssf.usermodel.XSSFRow;
@@ -68,6 +73,7 @@ import com.hdg.client.entry.ParticipantInfoEntry;
 import com.hdg.client.exception.bll.BLLException;
 import com.hdg.client.exception.service.ServiceLocatorException;
 import com.hdg.client.javaBean.CompanyInfo;
+import com.hdg.common.LoggedUser;
 import com.hdg.common.SysSetting;
 import com.hdg.entity.persistance.dal.ExecuteSqlInLoop;
 import com.netx.FormatorNetx;
@@ -3174,12 +3180,13 @@ public class ParticipantExcelSpecification extends ReportBase implements java.io
 			itemCatalogListAction = new ItemCatalogListAction();
 			executeSqlInLoopUnit = new ExecuteSqlInLoop();
 			paraActionBase.companyInfo = (CompanyInfo) paraActionBase.session.getAttribute("companyInfo");
+			paraActionBase.loggedUser = (LoggedUser) paraActionBase.session.getAttribute("loggedUser");
 			excelReaderWriter = new ExcelReaderWriter(customFilePath + newFileName);
 			excelReader = new ExcelReader(customFilePath + newFileName);
 			excelReader.setSheet(0);
 			excelReader.setCellAddress("A6");
 			long companyId = paraActionBase.companyInfo.getCompanyID();
-			excelReader.newMaxBufferDataCell(6);
+			excelReader.newMaxBufferDataCell(14);
 
 			CellData[] cellDataArray = null;
 			boolean readRow = true;
@@ -3208,22 +3215,25 @@ public class ParticipantExcelSpecification extends ReportBase implements java.io
 				{
 					companyItemCatalogCAB = new CompanyItemCatalogCAB();
 
-					excelReader.readRow(6);
+					excelReader.readRow(14);
 					cellDataArray = excelReader.getCellDataArray();
 
 					for (int i = 0; i < cellDataArray.length; i++)
 					{
 						CellType cellType = cellDataArray[i].cellType;
 						String cell = new String(cellType + "");
-						switch (cellDataArray[i].currentColumnIndex)
+						switch (i)
 						{
 							case 0:
-
-								if (cell.contains("STRING"))
+								if (cellType==null)
+								{
+									companyItemCatalogCAB.setSkuPartNumber("");
+								}
+								else if (cell.contains("STRING"))
 								{
 									companyItemCatalogCAB.setSkuPartNumber(cellDataArray[i].stringData);
 								}
-								if (cell.contains("NUMERIC"))
+								 if (cell.contains("NUMERIC"))
 								{
 									if ((cellDataArray[i].numeric) == 0.0)
 									{
@@ -3231,47 +3241,94 @@ public class ParticipantExcelSpecification extends ReportBase implements java.io
 									}
 									else
 									{
-										companyItemCatalogCAB.setSkuPartNumber(cellDataArray[i].numeric + "");
+										Double d = new Double(cellDataArray[i].numeric);
+										long lg = d.longValue();
+										String skuPartNumber =String.valueOf(lg);
+										companyItemCatalogCAB.setSkuPartNumber(skuPartNumber);
 									}
 								}
 								break;
 							case 1:
-
+								if (cellType==null)
+								{
+									companyItemCatalogCAB.setMaterialNo("");
+								}
 								if (cell.contains("STRING"))
 								{
 									companyItemCatalogCAB.setMaterialNo(cellDataArray[i].stringData);
 								}
 								if (cell.contains("NUMERIC"))
 								{
-									companyItemCatalogCAB.setMaterialNo(cellDataArray[i].numeric + "");
+									if ((cellDataArray[i].numeric) == 0.0)
+									{
+										companyItemCatalogCAB.setMaterialNo("");
+									}
+									else
+									{
+										Double d = new Double(cellDataArray[i].numeric);
+										long lg = d.longValue();
+										String materialNo =String.valueOf(lg);
+										companyItemCatalogCAB.setMaterialNo(materialNo);
+									}
 								}
 								break;
 
 							case 2:
-
+								if (cellType==null)
+								{
+									companyItemCatalogCAB.setItemName("");
+								}
 								if (cell.contains("STRING"))
 								{
 									companyItemCatalogCAB.setItemName(cellDataArray[i].stringData);
 								}
 								if (cell.contains("NUMERIC"))
 								{
-									companyItemCatalogCAB.setItemName(cellDataArray[i].numeric + "");
+									if ((cellDataArray[i].numeric) == 0.0)
+									{
+										companyItemCatalogCAB.setItemName("");
+									}
+									else
+									{
+										Double d = new Double(cellDataArray[i].numeric);
+										long lg = d.longValue();
+										String itemName = String.valueOf(lg);
+										companyItemCatalogCAB.setItemName(itemName);
+									}
 								}
+								
 								break;
 							case 3:
-
+								if (cellType==null)
+								{
+									companyItemCatalogCAB.setLongDescription("");
+								}
 								if (cell.contains("STRING"))
 								{
 									companyItemCatalogCAB.setLongDescription(cellDataArray[i].stringData);
 								}
 								if (cell.contains("NUMERIC"))
 								{
-									companyItemCatalogCAB.setLongDescription(cellDataArray[i].numeric + "");
+									if ((cellDataArray[i].numeric) == 0.0)
+									{
+										companyItemCatalogCAB.setLongDescription("");
+									}
+									else
+									{
+										Double d = new Double(cellDataArray[i].numeric);
+										long lg = d.longValue();
+										String longDescription =String.valueOf(lg);
+										companyItemCatalogCAB.setLongDescription(longDescription);
+									}
 								}
+								
 								break;
 
 							case 4:
-
+								if (cellType==null)
+								{
+									companyItemCatalogCAB.setCompanyMeasureUnitID("");
+								}
 								if (cell.contains("STRING"))
 								{
 									String unitName = cellDataArray[i].stringData;
@@ -3282,26 +3339,241 @@ public class ParticipantExcelSpecification extends ReportBase implements java.io
 								{
 									companyItemCatalogCAB.setCompanyMeasureUnitID(cellDataArray[i].numeric + "");
 								}
+								
 								break;
 							case 5:
-
+								if (cellType==null)
+								{
+									companyItemCatalogCAB.setItemBrand("");
+								}
 								if (cell.contains("STRING"))
 								{
 									companyItemCatalogCAB.setItemBrand(cellDataArray[i].stringData);
+								
 								}
 								if (cell.contains("NUMERIC"))
 								{
-									companyItemCatalogCAB.setItemBrand(cellDataArray[i].numeric + "");
+									if ((cellDataArray[i].numeric) == 0.0)
+									{
+										companyItemCatalogCAB.setItemBrand("");
+									}
+									else
+									{
+										Double d = new Double(cellDataArray[i].numeric);
+										long lg = d.longValue();
+										String itemBrand = String.valueOf(lg);
+										companyItemCatalogCAB.setItemBrand(itemBrand);
+									}
+								}
+								break;
+							case 6:
+								if (cellType==null)
+								{
+									companyItemCatalogCAB.setItemNotes("");
+								}
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setItemNotes(cellDataArray[i].stringData);
+								
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									if ((cellDataArray[i].numeric) == 0.0)
+									{
+										companyItemCatalogCAB.setItemNotes("");
+									}
+									else
+									{
+										Double d = new Double(cellDataArray[i].numeric);
+										long lg = d.longValue();
+										String itemNotes = String.valueOf(lg);
+										companyItemCatalogCAB.setItemNotes(itemNotes);
+									}
+								}
+								break;
+							case 7:
+								if (cellType==null)
+								{
+									companyItemCatalogCAB.setQuantityOnHand(0);
+								}
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setQuantityOnHand(0);
+								
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									if ((cellDataArray[i].numeric) == 0.0)
+									{
+										companyItemCatalogCAB.setQuantityOnHand(0);
+									}
+									else
+									{
+										Double d = new Double(cellDataArray[i].numeric);
+										long lg = d.longValue();
+										//String QuantityOnHand = String.valueOf(lg);
+										companyItemCatalogCAB.setQuantityOnHand(lg);
+									}
+								}
+								break;
+							case 8:
+								if (cellType==null)
+								{
+									companyItemCatalogCAB.setQuantityOnOrder(0);
+								}
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setQuantityOnOrder(0);
+								
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									if ((cellDataArray[i].numeric) == 0.0)
+									{
+										companyItemCatalogCAB.setQuantityOnOrder(0);
+									}
+									else
+									{
+										Double d = new Double(cellDataArray[i].numeric);
+										long lg = d.longValue();
+										//String QuantityOnHand = String.valueOf(lg);
+										companyItemCatalogCAB.setQuantityOnOrder(lg);
+									}
+								}
+								break;
+							case 9:
+								if (cellType==null)
+								{
+									companyItemCatalogCAB.setLastPurchasePrice(0);
+								}
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setLastPurchasePrice(0);
+								
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									if ((cellDataArray[i].numeric) == 0.0)
+									{
+										companyItemCatalogCAB.setLastPurchasePrice(0);
+									}
+									else
+									{
+										Double d = new Double(cellDataArray[i].numeric);
+										//long lg = d.longValue();
+										//String QuantityOnHand = String.valueOf(lg);
+										companyItemCatalogCAB.setLastPurchasePrice(d);
+									}
+								}
+								break;
+							case 10:
+								if (cellType==null)
+								{
+									companyItemCatalogCAB.setUnitPrice(0);
+								}
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setUnitPrice(0);
+								
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									if ((cellDataArray[i].numeric) == 0.0)
+									{
+										companyItemCatalogCAB.setUnitPrice(0);
+									}
+									else
+									{
+										Double d = new Double(cellDataArray[i].numeric);
+										//long lg = d.longValue();
+										//String QuantityOnHand = String.valueOf(lg);
+										companyItemCatalogCAB.setUnitPrice(d);
+									}
+								}
+								break;
+							case 11:
+								if (cellType==null)
+								{
+									companyItemCatalogCAB.setBasePrice(0);
+								}
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setBasePrice(0);
+								
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									if ((cellDataArray[i].numeric) == 0.0)
+									{
+										companyItemCatalogCAB.setBasePrice(0);
+									}
+									else
+									{
+										Double d = new Double(cellDataArray[i].numeric);
+										//long lg = d.longValue();
+										//String QuantityOnHand = String.valueOf(lg);
+										companyItemCatalogCAB.setBasePrice(d);
+									}
+								}
+								break;	
+							case 12:
+								if (cellType==null)
+								{
+									companyItemCatalogCAB.setReorderPoint(0);
+								}
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setReorderPoint(0);
+								
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									if ((cellDataArray[i].numeric) == 0.0)
+									{
+										companyItemCatalogCAB.setReorderPoint(0);
+									}
+									else
+									{
+										Double d = new Double(cellDataArray[i].numeric);
+										long lg = d.longValue();
+										//String QuantityOnHand = String.valueOf(lg);
+										companyItemCatalogCAB.setReorderPoint(lg);
+									}
+								}
+								break;
+							case 13:
+								if (cellType==null)
+								{
+									companyItemCatalogCAB.setReorderQuantity(0);
+								}
+								if (cell.contains("STRING"))
+								{
+									companyItemCatalogCAB.setReorderQuantity(0);
+								
+								}
+								if (cell.contains("NUMERIC"))
+								{
+									if ((cellDataArray[i].numeric) == 0.0)
+									{
+										companyItemCatalogCAB.setReorderQuantity(0);
+									}
+									else
+									{
+										Double d = new Double(cellDataArray[i].numeric);
+										long lg = d.longValue();
+										//String QuantityOnHand = String.valueOf(lg);
+										companyItemCatalogCAB.setReorderQuantity(lg);
+									}
 								}
 								break;
 							default:
 								break;
 						}
 					}
-					if ((companyItemCatalogCAB.getSkuPartNumber() == null || companyItemCatalogCAB.getSkuPartNumber() == "") && (companyItemCatalogCAB.getMaterialNo() == null || companyItemCatalogCAB.getMaterialNo().contains("0.0")) && (companyItemCatalogCAB.getItemName() == null || companyItemCatalogCAB.getItemName().contains("0.0")) && (companyItemCatalogCAB.getLongDescription() == null || companyItemCatalogCAB.getLongDescription().contains("0.0")) && (companyItemCatalogCAB.getCompanyMeasureUnitID() == null || companyItemCatalogCAB.getCompanyMeasureUnitID().contains("0")) && (companyItemCatalogCAB.getItemBrand() == null || companyItemCatalogCAB.getItemBrand().contains("0.0")))
+					if ((companyItemCatalogCAB.getSkuPartNumber() == null || companyItemCatalogCAB.getSkuPartNumber() == "") && (companyItemCatalogCAB.getMaterialNo() == "" || companyItemCatalogCAB.getMaterialNo()==null) && (companyItemCatalogCAB.getItemName() == "" || companyItemCatalogCAB.getItemName()==null) && (companyItemCatalogCAB.getLongDescription() == "" || companyItemCatalogCAB.getLongDescription()==null) && (companyItemCatalogCAB.getCompanyMeasureUnitID() == "" || companyItemCatalogCAB.getCompanyMeasureUnitID().contains("0")) && (companyItemCatalogCAB.getItemBrand() == "" || companyItemCatalogCAB.getItemBrand()==null))
 					{
 						rowNullCount++;
-						if (rowNullCount > 10)
+						if (rowNullCount > 5)
 						{
 							break;
 						}
@@ -3311,7 +3583,7 @@ public class ParticipantExcelSpecification extends ReportBase implements java.io
 						rowNullCount = 0;
 						companyItemCatalogCABArrayList.add(companyItemCatalogCAB);
 					}
-					excelReader.move(1, -6);
+					excelReader.move(1, -14);
 					rowCounter++;
 				}
 
@@ -3338,7 +3610,7 @@ public class ParticipantExcelSpecification extends ReportBase implements java.io
 					}
 				}
 				String company_TEMP_LOCAL_PATH = SysSetting.PROTOCOL + paraActionBase.companyInfo.getCompanyMainURL() + SysSetting.CONTEXT + "/TEMP_LOCAL_PATH";
-				firstInvalidNumberSecondFile = prepareNotInsertedProductCatalog(err_companyItemCatalogCABArrayList, errMsg_companyItemCatalogCABArrayList, company_TEMP_LOCAL_PATH);
+				firstInvalidNumberSecondFile = prepareNotInsertedProductCatalog(err_companyItemCatalogCABArrayList, errMsg_companyItemCatalogCABArrayList, company_TEMP_LOCAL_PATH, request, paraActionBase);
 
 			}
 			else
@@ -3353,21 +3625,42 @@ public class ParticipantExcelSpecification extends ReportBase implements java.io
 			throw new BLLException(exception);
 		}
 		finally
-		{}
+		{
+			if (executeSqlInLoopUnit != null)
+			{
+				try
+				{
+					executeSqlInLoopUnit.close();
+				}
+				catch (Exception e)
+				{
+					e.printStackTrace();
+				}
+				executeSqlInLoopUnit = null;
+			}
+		}
 		return firstInvalidNumberSecondFile;
 
 	}
-	public String[] prepareNotInsertedProductCatalog(ArrayList<CompanyItemCatalogCAB> err_companyItemCatalogCABArrayList, ArrayList<String> errMsg_companyItemCatalogCABArrayList, String company_TEMP_LOCAL_PATH)
+	public String[] prepareNotInsertedProductCatalog(ArrayList<CompanyItemCatalogCAB> err_companyItemCatalogCABArrayList, ArrayList<String> errMsg_companyItemCatalogCABArrayList, String company_TEMP_LOCAL_PATH, HttpServletRequest request, ParaActionBase paraActionBase)
 	{
 		String firstInvalidNumberSecondFile[] = new String[2];
 		ExcelReaderWriter excelReaderWriter = null;
 		int insertedCount = 0;
 		int notInsertedCount = 0;
-
+		
+		CellRangeAddressList addressList = null;
+		DataValidation dataValidation = null;
+		DataValidationConstraint constraint = null;
+		DataValidationHelper validationHelper = null;
+		validationHelper = new XSSFDataValidationHelper(xssfSheet);
+		
 		CompanyItemCatalogCAB itemCatalogListForm;
 		ParticipantCopyExcel participantCopyExcel = new ParticipantCopyExcel();
 		File afile1 = participantCopyExcel.copyInvalidProductCatalogExcel();
 		String invalidEntryLink = company_TEMP_LOCAL_PATH + "/" + afile1.getName();
+		String fileNameWithPath = SysSetting.TEMP_LOCAL_PATH + "\\" + afile1.getName();
+		String fileName = afile1.getName();
 
 		try
 		{
@@ -3396,16 +3689,40 @@ public class ParticipantExcelSpecification extends ReportBase implements java.io
 						excelReaderWriter.write(itemCatalogListForm.getLongDescription());
 						excelReaderWriter.move(0, 1);
 
-						excelReaderWriter.write(itemCatalogListForm.getCompanyMeasureUnitID());
+						excelReaderWriter.write("");
 						excelReaderWriter.move(0, 1);
 
 						excelReaderWriter.write(itemCatalogListForm.getItemBrand());
 						excelReaderWriter.move(0, 1);
 
+						excelReaderWriter.write(itemCatalogListForm.getItemNotes());
+						excelReaderWriter.move(0, 1);
+						
+						excelReaderWriter.write(itemCatalogListForm.getQuantityOnHand());
+						excelReaderWriter.move(0, 1);
+						
+						excelReaderWriter.write(itemCatalogListForm.getQuantityOnOrder());
+						excelReaderWriter.move(0, 1);
+						
+						excelReaderWriter.write(itemCatalogListForm.getLastPurchasePrice());
+						excelReaderWriter.move(0, 1);
+						
+						excelReaderWriter.write(itemCatalogListForm.getUnitPrice());
+						excelReaderWriter.move(0, 1);
+						
+						excelReaderWriter.write(itemCatalogListForm.getBasePrice());
+						excelReaderWriter.move(0, 1);
+
+						excelReaderWriter.write(itemCatalogListForm.getReorderPoint());
+						excelReaderWriter.move(0, 1);
+						
+						excelReaderWriter.write(itemCatalogListForm.getReorderQuantity());
+						excelReaderWriter.move(0, 1);
+						
 						excelReaderWriter.write(errMsg_companyItemCatalogCABArrayList.get(i));
 						excelReaderWriter.move(0, 1);
 
-						excelReaderWriter.move(1, -7);
+						excelReaderWriter.move(1, -15);
 
 					}
 					catch (Exception exception)
@@ -3417,7 +3734,15 @@ public class ParticipantExcelSpecification extends ReportBase implements java.io
 				}
 				rowNum++;
 			}
+			addressList = new CellRangeAddressList(5, 105, 4, 4);
+			constraint=	validationHelper.createFormulaListConstraint("measureList");		 
+			dataValidation = validationHelper.createValidation(constraint, addressList);
+			dataValidation.setSuppressDropDownArrow(true);
+			dataValidation.setShowErrorBox(true);
+			dataValidation.createErrorBox("Invalid Input", "Something is wrong - please, select from List!");
+			excelReaderWriter.addValidationData(dataValidation);
 			excelReaderWriter.setAutoColumnWidth();
+			additionalProductfieldExeclFileCreateRefrence(excelReaderWriter,fileNameWithPath,fileName,request, paraActionBase.loggedUser.getCompanyID());
 			excelReaderWriter.save();
 			excelReaderWriter.close();
 		}
@@ -3446,7 +3771,7 @@ public class ParticipantExcelSpecification extends ReportBase implements java.io
 			{
 				try
 				{
-					Row row = sheet.getRow(0);
+					Row row = sheet.getRow(4);
 					if (row != null)
 					{
 						int colNum = 0;
@@ -3599,15 +3924,25 @@ public class ParticipantExcelSpecification extends ReportBase implements java.io
 			rfqService = new RFQService(request);
 
 			excelReaderWriter.createSheet("Bulk Insert Catalog");
+			XSSFDataValidationHelper dvHelper = new XSSFDataValidationHelper((XSSFSheet)excelReaderWriter.getSheet("Bulk Insert Catalog",0));
+			XSSFDataValidationConstraint dvConstraint = 
+				    (XSSFDataValidationConstraint)
+				    dvHelper.createNumericConstraint(
+				        XSSFDataValidationConstraint.ValidationType.DECIMAL,
+				        XSSFDataValidationConstraint.OperatorType.BETWEEN,
+				        String.valueOf(Float.MIN_VALUE),
+				        String.valueOf(Float.MAX_VALUE)
+				    );
 			excelReaderWriter.createRow(1);
 			excelReaderWriter.setRowHeight(450);
-
-			excelReaderWriter.setCellAddress("C2");
+			excelReaderWriter.setCellAddress("B1");
+			excelReaderWriter.setmergeColumnForTemplateHeading(0, 0, 1, 3);
+			
 			excelReaderWriter.write("BulkInsert Product Catalog");
-			excelReaderWriter.setStyle("titleStyle");
-			excelReaderWriter.move(3, -2);
+			excelReaderWriter.setStyle("titleForHeading");
 			
 			
+			excelReaderWriter.setCellAddress("A5");
 			excelReaderWriter.write("SKU / Part No*");
 			excelReaderWriter.setStyle("titleStyle");
 
@@ -3626,31 +3961,75 @@ public class ParticipantExcelSpecification extends ReportBase implements java.io
 			excelReaderWriter.move(0, 1);
 			excelReaderWriter.write("Unit of Measure");
 			excelReaderWriter.setStyle("titleStyle");
-			//excelReaderWriter.setStyle(key);
 
 			excelReaderWriter.move(0, 1);
 			excelReaderWriter.write("Brand");
 			excelReaderWriter.setStyle("titleStyle");
+			
+			//AdditionalFeild
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Item Notes");
+			excelReaderWriter.setStyle("titleStyle");
+			
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Quantity on Hand");
+			excelReaderWriter.setStyle("titleStyle");
+			
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Quantity on Order");
+			excelReaderWriter.setStyle("titleStyle");
+			
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Last Purchase Price");
+			excelReaderWriter.setStyle("titleStyle");
+			
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Unit Price");
+			excelReaderWriter.setStyle("titleStyle");
+			
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Base Price");
+			excelReaderWriter.setStyle("titleStyle");
+			
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Reorder Point");
+			excelReaderWriter.setStyle("titleStyle");
+
+			excelReaderWriter.move(0, 1);
+			excelReaderWriter.write("Reorder Quantity");
+			excelReaderWriter.setStyle("titleStyle");
 			col = 0;
 
-			ArrayList<CompanyMeasureUnitCAB> companyMeasureUnitCABArrayList = null;
-			companyMeasureUnitCABArrayList = rfqService.findCompanyMeasureUnit(companyId);
-			String[] list1 = new String[companyMeasureUnitCABArrayList.size()];
-			for (int i = 0; i < companyMeasureUnitCABArrayList.size(); i++)
-			{
-				companyMeasureUnit.add(companyMeasureUnitCABArrayList.get(i).getUnitName());
-				list1[i] = companyMeasureUnitCABArrayList.get(i).getUnitName();
-			}
-			String companyMeasureUnits[] = companyMeasureUnit.toArray(new String[companyMeasureUnit.size()]);
+			CellRangeAddressList addressList3 = new CellRangeAddressList(
+			        5, 105, 7, 13);
+			XSSFDataValidation validation3 =(XSSFDataValidation)dvHelper.createValidation(
+			        dvConstraint, addressList3);
+			validation3.setSuppressDropDownArrow(false);
+			validation3.setShowErrorBox(true);
+			validation3.createErrorBox("Invalid Input", "Something is wrong - please, insert Numeric value!");
+			
+//			ArrayList<CompanyMeasureUnitCAB> companyMeasureUnitCABArrayList = null;
+//			companyMeasureUnitCABArrayList = rfqService.findCompanyMeasureUnit(companyId);
+//			String[] list1 = new String[companyMeasureUnitCABArrayList.size()];
+//			for (int i = 0; i < companyMeasureUnitCABArrayList.size(); i++)
+//			{
+//				companyMeasureUnit.add(companyMeasureUnitCABArrayList.get(i).getUnitName());
+//				list1[i] = companyMeasureUnitCABArrayList.get(i).getUnitName();
+//			}
+//			String companyMeasureUnits[] = companyMeasureUnit.toArray(new String[companyMeasureUnit.size()]);
 
+			
+			//constraint = validationHelper.createExplicitListConstraint(companyMeasureUnits);
 			addressList = new CellRangeAddressList(5, 105, 4, 4);
-			constraint = validationHelper.createExplicitListConstraint(companyMeasureUnits);
+			constraint=	validationHelper.createFormulaListConstraint("measureList");		 
 			dataValidation = validationHelper.createValidation(constraint, addressList);
 			dataValidation.setSuppressDropDownArrow(true);
 			dataValidation.setShowErrorBox(true);
 			dataValidation.createErrorBox("Invalid Input", "Something is wrong - please, select from List!");
 			excelReaderWriter.addValidationData(dataValidation);
+			excelReaderWriter.addValidationData(validation3);
 			excelReaderWriter.setAutoColumnWidth();
+			additionalProductfieldExeclFileCreateRefrence(excelReaderWriter,fileNameWithPath,filename,request,paraActionBase.loggedUser.getCompanyID());
 			excelReaderWriter.save();
 			excelReaderWriter.close();
 		}
@@ -3664,7 +4043,64 @@ public class ParticipantExcelSpecification extends ReportBase implements java.io
 			
 		}
 	}
-
+	//Create excel of product Catalog using Name rang.   
+	public void additionalProductfieldExeclFileCreateRefrence(ExcelReaderWriter excelReaderWriter ,String fileNameWithPath, String filename, HttpServletRequest request, int companyId) throws Exception
+	{
+		//int companyId = Integer.parseInt(request.getParameter("companyId"));
+		ProductCatalogExcelStyleCreator productCatalogExcelStyleCreator = new ProductCatalogExcelStyleCreator();
+		CompanyItemCatalogCAB companyItemCatalogCAB = null;
+		DataValidation dataValidation = null;
+		DataValidationConstraint constraint = null;
+		DataValidationHelper validationHelper = null;
+		validationHelper = new XSSFDataValidationHelper(xssfSheet);
+		CellRangeAddressList addressList = null;
+		ArrayList<String> companyMeasureUnit = new ArrayList<String>();
+		RFQService rfqService = null;
+		String aditionalFieldName = "";
+		RFQCover rfqCover = new RFQCover();
+		int col = 0;
+		Sheet local_sheet = null;
+		try
+		{
+			rfqService = new RFQService(request);
+			excelReaderWriter.createSheet("MeasureList"); 
+		    Sheet sheet = excelReaderWriter.getSheet("MeasureList",1);
+		    int rowfirst=0;
+		    int rowlast=0;
+		    Workbook wb = excelReaderWriter.getWorkbook();
+			ArrayList<CompanyMeasureUnitCAB> companyMeasureUnitCABArrayList = null;
+			companyMeasureUnitCABArrayList = rfqService.findCompanyMeasureUnit(companyId);
+			String[] list1 = new String[companyMeasureUnitCABArrayList.size()];
+			for (int i = 0; i < companyMeasureUnitCABArrayList.size(); i++)
+			{
+				companyMeasureUnit.add(companyMeasureUnitCABArrayList.get(i).getUnitName());
+				list1[i] = companyMeasureUnitCABArrayList.get(i).getUnitName();
+				row1=sheet.createRow(i);
+				cell1=row1.createCell(0);
+				cell1.setCellValue(companyMeasureUnitCABArrayList.get(i).getUnitName());
+				rowlast=i;		
+			}
+			rowlast=rowlast+1;
+			row1=sheet.getRow(0);
+			cell1=row1.getCell(rowfirst);
+			cell1.getAddress();
+			String[] companyMeasureUnits = companyMeasureUnit.toArray(new String[companyMeasureUnit.size()]);
+			Name namedCell = sheet.getWorkbook().createName();
+			namedCell.setNameName("measureList");
+			String reference = "MeasureList!$A$1:$A$"+rowlast; //List 1 to 3
+			namedCell.setRefersToFormula(reference);
+			wb.setSheetHidden(1, HSSFWorkbook.SHEET_STATE_VERY_HIDDEN);
+			
+		}	
+		catch (Exception e)
+		{
+			e.printStackTrace();
+		}
+		finally
+		{
+			
+		}
+	}
 }
 class ProductCatalogExcelStyleCreator implements ExcelStyleCreator
 {
@@ -3684,10 +4120,20 @@ class ProductCatalogExcelStyleCreator implements ExcelStyleCreator
 		titleStyle.setAlignment(HSSFCellStyle.ALIGN_CENTER);
 		titleStyle.setVerticalAlignment(HSSFCellStyle.VERTICAL_TOP);
 		titleStyle.setWrapText(false);
-		//titleStyle.setFillBackgroundColor(HSSFColor.BLACK.index);
-		//titleStyle.setFillPattern(HSSFCellStyle.SOLID_FOREGROUND);
-
 		excelStyleSet.setStyle("titleStyle", titleStyle);
+		
+		
+		Font title =workbook.createFont();
+		title.setFontName("ARIAL");
+		title.setBoldweight(HSSFFont.BOLDWEIGHT_BOLD);
+		title.setFontHeightInPoints((short) 14);	
+		title.setColor(HSSFColor.BLACK.index);
+		CellStyle titleForHeading = workbook.createCellStyle();
+		titleForHeading.setFont(title);
+		titleForHeading.setAlignment(HSSFCellStyle.ALIGN_CENTER);
+		titleForHeading.setVerticalAlignment(HSSFCellStyle.VERTICAL_TOP);
+
+		excelStyleSet.setStyle("titleForHeading", titleForHeading);
 }
 
 }
