@@ -136,6 +136,18 @@ insert into Marks values(4,52,61,39,60);
 insert into Marks values(5,55,60,42,56);
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ALTER TABLE Persons
+ADD CONSTRAINT PK_Person PRIMARY KEY (ID,LastName);
+
+ALTER TABLE Company
+ADD allowMaterialUI bit null
+
+
+ALTER TABLE Company
+DROP CONSTRAINT DF__Company__allowMa__2F7D422B;
+
+ALTER TABLE Company
+DROP COLUMN allowMaterialUI;
 
 
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
