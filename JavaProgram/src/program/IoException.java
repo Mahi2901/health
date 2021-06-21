@@ -1,5 +1,0 @@
-package program;
-
-class IoException {
-    
-}
